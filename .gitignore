@@ -1,0 +1,10 @@
+# Godot: кэш импорта и данные редактора
+.godot/
+# сборки: APK выкладывается в Releases, не в репозиторий
+build/
+*.apk
+*.aab
+*.idsig
+export_credentials.cfg
+# macOS
+.DS_Store
