@@ -321,10 +321,11 @@ func _draw_highway_menu() -> void:
 		var r := clampf(7.0 * big * 0.5, 7.0, 12.0)
 		_draw_stars(row.position + Vector2(row.size.x - 70 - r * 13.0, row.size.y * 0.5), int(Songs.best(String(song["id"])).get("stars", 0)), r)
 		if selected or Game.touch:
-			var c := row.position + Vector2(row.size.x - 34, row.size.y * 0.5)
+			var c := row.position + Vector2(row.size.x - 40, row.size.y * 0.5)
 			var k := clampf(big * 0.6, 1.0, 2.0)
 			draw_colored_polygon(PackedVector2Array([c + Vector2(-7, -9) * k, c + Vector2(9, 0) * k, c + Vector2(-7, 9) * k]),
 				GOLD if selected else DIM)
+	_draw_scrollbar("menu")
 
 
 ## Итог: звёзды, счёт, монеты, стиль.
@@ -380,6 +381,7 @@ func _draw_highway_shop() -> void:
 		var status_size := 18 if tall else 15
 		Glyph.text(self, row.position + Vector2(row.size.x - 12 - Glyph.width(status[0], status_size), row.size.y * 0.5 + status_size * 0.36),
 			status[0], status_size, status[1])
+	_draw_scrollbar("shop")
 	var rect := Layout.SHOP_PREVIEW
 	draw_rect(rect, PANEL)
 	var chosen: Dictionary = Shop.SKINS[Game.shop_index]
@@ -417,10 +419,10 @@ func _draw_touch() -> void:
 			cued = cue.get("frets", []).has(button["fret"])
 		elif button.has("string"):
 			glow = clampf(1.0 - float(_strike_flash.get(button["string"], 9.0)) / 0.15, 0.0, 1.0)
+			# тянет эту струну (бенд) — горит, пока тянет
+			if fretboard.bending and fretboard.active == button["string"]:
+				glow = 0.7
 			cued = cue.get("strings", []).has(button["string"])
-		elif button.has("bend"):
-			glow = 1.0 if fretboard.bending else 0.0
-			cued = cue.get("bend", false)
 		elif button.has("lit"):
 			glow = 1.0 if Game.get(String(button["lit"])) else 0.0
 		var fill := KEY_FILL.lerp(GOLD.darkened(0.35), pulse) if cued else KEY_FILL
@@ -431,6 +433,24 @@ func _draw_touch() -> void:
 		var size := clampi(int(minf(rect.size.y * 0.32, rect.size.x / maxf(1.0, label.length()) * 1.3)), 14, 48)
 		var ink := Color.WHITE.lerp(Color(0.05, 0.05, 0.08), glow)
 		Glyph.text_center(self, rect.get_center().x, rect.get_center().y + size * 0.35, label, size, ink)
+		# нота с бендом: ударь и потяни палец вбок
+		if cued and button.has("string") and cue.get("bend", false):
+			Glyph.text_center(self, rect.get_center().x, rect.end.y - 14, "ударь и тяни вбок", 17, GOLD)
+
+
+## Полоска прокрутки справа у списка (на сенсоре, если строк больше, чем видно).
+func _draw_scrollbar(state: String) -> void:
+	var look := TouchPad.list_layout(state)
+	var count := int(TouchPad.lists()[state]["count"])
+	var rows := int(look["rows"])
+	if not Game.touch or count <= rows:
+		return
+	var rect: Rect2 = look["rect"]
+	var track := Rect2(rect.end.x - 6, rect.position.y + 4, 4, rect.size.y - 8)
+	var thumb := track.size.y * rows / count
+	var y := track.position.y + (track.size.y - thumb) * TouchPad.first_row(state) / maxf(1.0, count - rows)
+	draw_rect(track, Color(1, 1, 1, 0.08))
+	draw_rect(Rect2(track.position.x, y, track.size.x, thumb), Color(GOLD, 0.8))
 
 
 func _draw_stars(origin: Vector2, count: int, r := 7.0) -> void:

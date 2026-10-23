@@ -76,6 +76,8 @@ func test_menu_row_starts_at_once() -> void:
 	Game.state = "menu"
 	var second: Rect2 = TouchPad.list_rows("menu")[1]["rect"]
 	_touch(0, second.get_center(), true)
+	eq(sent, [], "пока палец на строке — ничего: вдруг это прокрутка")
+	_touch(0, second.get_center(), false)
 	eq(Game.menu_index, 1, "касание выбирает песню")
 	eq(sent, ["start ↓", "start ↑"], "и сразу её играет — одно касание")
 
@@ -85,10 +87,11 @@ func test_shop_row_selects_then_takes() -> void:
 	Game.shop_index = 0
 	var second: Rect2 = TouchPad.list_rows("shop")[1]["rect"]
 	_touch(0, second.get_center(), true)
+	_touch(0, second.get_center(), false)
 	eq(Game.shop_index, 1, "в магазине касание выбирает гитару")
 	eq(sent, [], "но не покупает")
-	_touch(0, second.get_center(), false)
 	_touch(0, second.get_center(), true)
+	_touch(0, second.get_center(), false)
 	eq(sent, ["start ↓", "start ↑"], "второе касание — взять")
 	Game.shop_index = 0
 
@@ -96,10 +99,11 @@ func test_shop_row_selects_then_takes() -> void:
 func test_buttons_only_when_needed() -> void:
 	Game.needs = {"bend": false, "positions": false}
 	var actions := TouchPad.buttons("song").map(func(b: Dictionary) -> String: return b.get("action", ""))
-	check(not actions.has("bend") and not actions.has("position_up"), "песне без бенда и позиций — нет этих кнопок")
+	check(not actions.has("position_up"), "песне без сдвига руки — нет кнопок позиции")
 	Game.needs = {"bend": true, "positions": true}
 	actions = TouchPad.buttons("song").map(func(b: Dictionary) -> String: return b.get("action", ""))
-	check(actions.has("bend") and actions.has("position_up"), "нужны — есть")
+	check(actions.has("position_up"), "нужен сдвиг — кнопки есть")
+	check(not actions.has("bend"), "кнопки бенда нет вовсе — бенд жестом по струне")
 
 
 func test_jam_more_panel() -> void:
@@ -145,13 +149,48 @@ func test_buttons_fit_a_finger() -> void:
 	Game.touch = was_touch
 
 
-func test_scroll_reaches_every_song() -> void:
+func test_finger_scroll_reaches_every_song() -> void:
+	var was_touch := Game.touch
+	Game.touch = true
 	Game.state = "menu"
-	Game.menu_index = 0
-	for i in Songs.all().size():
-		_touch(0, _center("menu_down"), true)
-		_touch(0, _center("menu_down"), false)
-	eq(sent.count("menu_down ↓"), Songs.all().size(), "▼ на сенсоре — то же, что стрелка вниз")
+	Game.scroll["menu"] = 0.0
+	var rows: Array = TouchPad.list_rows("menu")
+	var top: Rect2 = rows[0]["rect"]
+	_touch(0, top.get_center(), true)
+	_drag(0, top.get_center() + Vector2(4, -2000))
+	_touch(0, top.get_center() + Vector2(4, -2000), false)
+	eq(sent, [], "листал — песню не запустил")
+	var last: Dictionary = TouchPad.list_rows("menu").back()
+	eq(int(last["index"]), Songs.all().size() - 1, "пролистал до последней песни")
+	_touch(0, (last["rect"] as Rect2).get_center(), true)
+	_touch(0, (last["rect"] as Rect2).get_center(), false)
+	eq(Game.menu_index, Songs.all().size() - 1, "коснулся последней — она выбрана")
+	eq(sent, ["start ↓", "start ↑"], "и играет")
+	Game.scroll["menu"] = 0.0
+	Game.touch = was_touch
+
+
+func test_bend_by_pulling_string() -> void:
+	var at := _center("strike_mid")
+	_touch(0, at, true)
+	_drag(0, at + Vector2(-20, 4))
+	_drag(0, at + Vector2(-60, 6))
+	_drag(0, at + Vector2(-70, 8))
+	_drag(0, at + Vector2(-10, 4))
+	_drag(0, at + Vector2(-60, 0))
+	_touch(0, at + Vector2(-60, 0), false)
+	eq(sent, ["strike_mid ↓", "strike_mid ↑", "bend ↓", "bend ↑", "bend ↓", "bend ↑"],
+		"ударил, потянул вбок — бенд; вернул — отпустил; снова потянул и поднял палец — отпустил")
+
+
+func test_strum_is_not_bend() -> void:
+	var high := _center("strike_high")
+	_touch(0, high, true)
+	_drag(0, _center("strike_mid") + Vector2(-50, 0))
+	_drag(0, _center("strike_low") + Vector2(-60, 0))
+	_touch(0, _center("strike_low") + Vector2(-60, 0), false)
+	check(not sent.has("bend ↓"), "бой наискосок через струны — не бенд: %s" % str(sent))
+	eq(sent.count("strike_low ↓"), 1, "но удары по всем струнам есть")
 
 
 func _center(action: String) -> Vector2:

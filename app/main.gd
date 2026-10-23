@@ -462,6 +462,7 @@ func open_shop() -> void:
 	for i in Shop.SKINS.size():
 		if Shop.SKINS[i]["id"] == Shop.equipped:
 			Game.shop_index = i
+	TouchPad.reveal("shop")
 
 
 ## Звук гитары на шине — надетой, а в магазине — выбранной (примерка звука).

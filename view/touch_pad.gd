@@ -2,43 +2,41 @@ class_name TouchPad
 extends Node
 ## Сенсорное управление. Пальцы превращаются в те же действия ввода, что и клавиши (InputConfig),
 ## поэтому гитара, песни и джем ничего не знают о сенсоре. Кнопки режима — buttons(state):
-## - hold — держится пальцем (лады, бенд); скольжение пальца на соседний лад сначала жмёт новый,
+## - hold — держится пальцем (лады); скольжение пальца на соседний лад сначала жмёт новый,
 ##   потом отпускает старый — получается легато, как на грифе;
 ## - tap — срабатывает при касании и когда палец въезжает в кнопку: удар по струне (проведи через
-##   струны сверху вниз — бой), позиция, кнопки меню и джема;
-## - row — строка списка (песни в меню, гитары в магазине — lists()): в меню касание сразу запускает песню
-##   («instant»), в магазине — выбирает, повторное — «start».
+##   струны сверху вниз — бой), позиция, кнопки меню и джема. Ударил по струне и, не отпуская, потянул палец
+##   вбок дальше BEND_PX — бенд («bend» держится), вернул ближе BEND_BACK или отпустил — бенд отпущен;
+## - row — строка списка (песни в меню, гитары в магазине — lists()). Список листается пальцем вверх-вниз
+##   (Game.scroll); касание без сдвига (меньше SCROLL_SLOP) срабатывает при отпускании: в меню сразу запускает
+##   песню («instant»), в магазине — выбирает, повторное — «start».
 ## «lit» — флаг Game, при котором кнопка подсвечена (переключатель вроде метронома); «needs» — кнопка нужна,
 ## только если песне нужно это умение (Game.needs: бенд, сдвиг позиции); «more» — кнопка панели «Ещё» в джеме
 ## (видна, пока Game.more). Так на экране только то, что нужно сейчас.
 ## Включается на сенсорных устройствах или флагом --touch (мышь тогда работает как палец).
 
-const PAD := Rect2(20, 520, 1240, 190)
 signal row_selected                 ## касание выбрало другую строку списка (для звука)
+
+const SCROLL_SLOP := 14.0           ## палец сдвинулся меньше — касание, больше — прокрутка списка
+const BEND_PX := 45.0               ## насколько потянуть палец вбок от точки удара, чтобы натянуть струну
+const BEND_BACK := 25.0             ## вернул ближе — струна отпущена
+const BEND_SIDEWAYS := 1.5          ## тянуть надо вбок: сдвиг по x больше сдвига по y во столько раз (иначе это бой)
 
 ## Кнопки, которые есть при игре на гитаре (песня и джем). Струны — столбиком справа на всю высоту от
 ## дорожки до низа, в порядке дорожки (верхняя сверху), с широкими промежутками, чтобы палец не задевал
-## соседнюю; бой — провести пальцем сверху вниз. Лады, бенд и позиция — внизу слева, под дорожкой.
+## соседнюю; бой — провести пальцем сверху вниз, бенд — потянуть вбок. Лады и позиция — внизу слева, под дорожкой.
 const GUITAR := [
 	{"kind": "hold", "action": "fret_1", "fret": "1", "label": "1", "rect": Rect2(20, 520, 152, 190)},
 	{"kind": "hold", "action": "fret_2", "fret": "2", "label": "2", "rect": Rect2(182, 520, 152, 190)},
 	{"kind": "hold", "action": "fret_3", "fret": "3", "label": "3", "rect": Rect2(344, 520, 152, 190)},
 	{"kind": "hold", "action": "fret_4", "fret": "4", "label": "4", "rect": Rect2(506, 520, 152, 190)},
-	{"kind": "hold", "action": "bend", "bend": true, "needs": "bend", "label": "бенд", "rect": Rect2(676, 520, 304, 90)},
-	{"kind": "tap", "action": "position_down", "needs": "positions", "label": "← поз", "rect": Rect2(676, 620, 146, 90)},
-	{"kind": "tap", "action": "position_up", "needs": "positions", "label": "поз →", "rect": Rect2(834, 620, 146, 90)},
+	{"kind": "tap", "action": "position_down", "needs": "positions", "label": "← поз", "rect": Rect2(676, 520, 146, 190)},
+	{"kind": "tap", "action": "position_up", "needs": "positions", "label": "поз →", "rect": Rect2(834, 520, 146, 190)},
 	{"kind": "tap", "action": "strike_high", "string": "high", "label": "верхняя", "rect": Rect2(996, 262, 264, 140)},
 	{"kind": "tap", "action": "strike_mid", "string": "mid", "label": "средняя", "rect": Rect2(996, 416, 264, 140)},
 	{"kind": "tap", "action": "strike_low", "string": "low", "label": "нижняя", "rect": Rect2(996, 570, 264, 140)},
 ]
 const BACK := {"kind": "tap", "action": "quit", "label": "← меню", "rect": Rect2(1090, 2, 186, 64)}
-## Прокрутка списков на сенсоре: те же действия, что стрелки на клавиатуре (выбор едет, список за ним).
-const SCROLL := {
-	"menu": [{"kind": "tap", "action": "menu_up", "label": "▲", "rect": Rect2(1124, 262, 136, 130)},
-		{"kind": "tap", "action": "menu_down", "label": "▼", "rect": Rect2(1124, 402, 136, 130)}],
-	"shop": [{"kind": "tap", "action": "menu_up", "label": "▲", "rect": Rect2(500, 262, 120, 112)},
-		{"kind": "tap", "action": "menu_down", "label": "▼", "rect": Rect2(500, 386, 120, 112)}],
-}
 ## Кнопки режима сверх гитары.
 const EXTRA := {
 	"menu": [
@@ -77,11 +75,13 @@ var active := false
 var sink: Callable = _to_input
 var _touches := {}                  ## палец → кнопка под ним (или пусто)
 var _holds := {}                    ## действие hold → сколько пальцев держат
+var _press := {}                    ## палец на списке: {row, from, scroll (прокрутка в начале), moved}
+var _bends := {}                    ## палец, ударивший по струне: {from (точка удара), on (тянет ли)}
 
 
 static func buttons(state: String) -> Array:
 	var out: Array = []
-	for button: Dictionary in (GUITAR if state in ["song", "jam"] else []) + EXTRA.get(state, []) + SCROLL.get(state, []):
+	for button: Dictionary in (GUITAR if state in ["song", "jam"] else []) + EXTRA.get(state, []):
 		if shown(button):
 			out.append(button)
 	out.append_array(list_rows(state))
@@ -109,7 +109,26 @@ static func list_layout(state: String) -> Dictionary:
 	return Layout.LISTS[state]["touch" if Game.touch else "keys"]
 
 
-## Видимые строки списка режима (их же рисует Hud): {kind: row, index, field, rect}. Список едет за выбором.
+## Самая верхняя видимая строка: на сенсоре — прокрутка пальцем (Game.scroll), на клавиатуре — список едет за выбором.
+static func first_row(state: String) -> int:
+	var list: Dictionary = lists()[state]
+	var rows := int(list_layout(state)["rows"])
+	var last := maxi(0, int(list["count"]) - rows)
+	@warning_ignore("integer_division")
+	var follow := int(Game.get(list["field"])) - rows / 3
+	return clampi(roundi(float(Game.scroll.get(state, 0.0))) if Game.touch else follow, 0, last)
+
+
+## Прокрутить список так, чтобы выбранная строка была видна (вход в магазин).
+static func reveal(state: String) -> void:
+	var list: Dictionary = lists()[state]
+	var rows := int(list_layout(state)["rows"])
+	var selected := int(Game.get(list["field"]))
+	var first := clampi(roundi(float(Game.scroll.get(state, 0.0))), selected - rows + 1, selected)
+	Game.scroll[state] = float(clampi(first, 0, maxi(0, int(list["count"]) - rows)))
+
+
+## Видимые строки списка режима (их же рисует Hud): {kind: row, index, field, rect}.
 static func list_rows(state: String) -> Array:
 	var list: Dictionary = lists().get(state, {})
 	var out: Array = []
@@ -120,8 +139,7 @@ static func list_rows(state: String) -> Array:
 	var rows := int(look["rows"])
 	var step := float(look["row_h"]) + float(look["gap"])
 	var count := int(list["count"])
-	@warning_ignore("integer_division")
-	var first := clampi(int(Game.get(list["field"])) - rows / 3, 0, maxi(0, count - rows))
+	var first := first_row(state)
 	for i in range(first, mini(count, first + rows)):
 		out.append({"kind": "row", "index": i, "field": list["field"], "instant": list["instant"],
 			"rect": Rect2(rect.position.x + 10, rect.position.y + float(look["top"]) + (i - first) * step, rect.size.x - 20,
@@ -147,19 +165,91 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		var touch := event as InputEventScreenTouch
 		if touch.pressed:
-			_move(touch.index, button_at(Game.state, touch.position))
+			_press_at(touch.index, touch.position)
 		else:
-			_move(touch.index, {})
-			_touches.erase(touch.index)
+			_lift(touch.index)
 	elif event is InputEventScreenDrag:
 		var drag := event as InputEventScreenDrag
-		var button := button_at(Game.state, drag.position)
-		if button != _touches.get(drag.index, {}):
-			_move(drag.index, button)
+		_drag_to(drag.index, drag.position)
 	else:
 		return
 	if is_inside_tree():
 		get_viewport().set_input_as_handled()
+
+
+func _press_at(index: int, pos: Vector2) -> void:
+	var button := button_at(Game.state, pos)
+	if button.get("kind") == "row":
+		_press[index] = {"row": button, "from": pos, "scroll": float(Game.scroll.get(Game.state, 0.0)), "moved": false}
+		return
+	_move(index, button)
+	_aim_bend(index, button, pos)
+
+
+func _drag_to(index: int, pos: Vector2) -> void:
+	if _press.has(index):
+		_scroll(index, pos)
+		return
+	# тянет струну — бой и повторные удары не мешают
+	if not _bends.get(index, {}).get("on", false):
+		var button := button_at(Game.state, pos)
+		if button != _touches.get(index, {}):
+			_move(index, button)
+			if button.has("string"):
+				_aim_bend(index, button, pos)
+	_track_bend(index, pos)
+
+
+func _lift(index: int) -> void:
+	if _press.has(index):
+		if not _press[index]["moved"]:
+			_begin_row(_press[index]["row"])
+		_press.erase(index)
+		return
+	_move(index, {})
+	_touches.erase(index)
+	_release_bend(index)
+
+
+## Прокрутка списка пальцем: строки едут вслед за ним.
+func _scroll(index: int, pos: Vector2) -> void:
+	var press: Dictionary = _press[index]
+	var dy := pos.y - (press["from"] as Vector2).y
+	if not press["moved"] and absf(dy) < SCROLL_SLOP:
+		return
+	press["moved"] = true
+	var look := list_layout(Game.state)
+	var rows := int(look["rows"])
+	var count := int(lists()[Game.state]["count"])
+	Game.scroll[Game.state] = clampf(float(press["scroll"]) - dy / (float(look["row_h"]) + float(look["gap"])),
+		0.0, float(maxi(0, count - rows)))
+
+
+## Удар по струне — отсюда и меряем, на сколько палец тянет вбок.
+func _aim_bend(index: int, button: Dictionary, pos: Vector2) -> void:
+	_release_bend(index)
+	if button.has("string"):
+		_bends[index] = {"from": pos, "on": false}
+
+
+func _track_bend(index: int, pos: Vector2) -> void:
+	if not _bends.has(index):
+		return
+	var bend: Dictionary = _bends[index]
+	var shift := pos - (bend["from"] as Vector2)
+	var sideways := absf(shift.x) >= absf(shift.y) * BEND_SIDEWAYS
+	if not bend["on"] and absf(shift.x) >= BEND_PX and sideways:
+		bend["on"] = true
+		_hold("bend", 1)
+	elif bend["on"] and absf(shift.x) < BEND_BACK:
+		bend["on"] = false
+		_hold("bend", -1)
+
+
+func _release_bend(index: int) -> void:
+	if _bends.get(index, {}).get("on", false):
+		_hold("bend", -1)
+	_bends.erase(index)
 
 
 ## Палец перешёл на другую кнопку (или поднят): сначала новая, потом отпускается старая.
