@@ -27,7 +27,7 @@ func test_midi_file() -> void:
 	eq(MidiFile.vlq(128), PackedByteArray([0x81, 0x00]), "VLQ 128")
 	eq(MidiFile.vlq(0x3FFF), PackedByteArray([0xFF, 0x7F]), "VLQ 16383")
 	var layer := [{"t": 0.0, "kind": "pluck", "string": "mid", "midis": [59]}, {"t": 0.3, "kind": "slur", "string": "mid", "midis": [62]},
-		{"t": 0.5, "kind": "bend", "string": "mid", "amount": 1.0}, {"t": 0.9, "kind": "mute", "string": "mid"}]
+		{"t": 0.5, "kind": "bend", "string": "mid", "amount": Tuning.BEND_MAX}, {"t": 0.9, "kind": "mute", "string": "mid"}]
 	var bytes := MidiFile.build([layer])
 	eq(bytes.slice(0, 4).get_string_from_ascii(), "MThd", "заголовок")
 	eq(bytes[11], 2, "дорожки: темп и слой")

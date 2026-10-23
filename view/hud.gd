@@ -7,6 +7,8 @@ extends Node2D
 ## в песне), внизу — одна строка подсказки (HINTS). Меню — названия песен и звёзды, итог — звёзды, счёт,
 ## монеты и стиль, джем — лупер и музыка, остальное — в панели «Ещё» (Game.more). Всплывающие сообщения — toast.
 ## Струна после удара дрожит (VIBRATO), свечение рисует FxLayer.
+## В джеме справа от линии удара — сетка «что звучит в аккорд» (CHORD_GRID): лады × струны, ноты аккорда
+## подложки горят (корень — золотом), над ней — аккорд сейчас, а по дорожке к линии едут следующие.
 
 const PLAYED_MAX := 48
 const TOAST_TIME := 3.0
@@ -33,6 +35,12 @@ const HINTS := {
 	"shop": "↑ ↓  выбрать      Enter  взять      P  послушать      Esc  назад",
 }
 ## Клавиши под дорожкой: группа, подпись под ней. Бенд — только если нужен.
+## Сетка аккорда в джеме: первый столбец — на x от линии удара, шаг столбцов, радиус кружка.
+const CHORD_GRID := {"x": 70.0, "step": 62.0, "r": 18.0}
+const CHORD_TONE := Color(0.45, 0.85, 1.0)
+## Вибрато на кнопке струны: каждый разворот тяги добавляет ряби, без разворотов она гаснет (в секунду).
+const WOBBLE_KICK := 0.4
+const WOBBLE_FADE := 1.5
 const KEY_SIZE := Vector2(62, 58)
 const KEY_GAP := 8.0
 const GROUP_GAP := 44.0
@@ -40,6 +48,8 @@ const GROUP_GAP := 44.0
 var _played: Array[Dictionary] = []    ## джем: {note, string, t, legato}
 var _strike_flash := {}                ## струна → секунды с удара
 var _toast := {}                       ## {text, t}
+var _bend_view := {}                   ## струна → {amount (плавно), target, dir, wobble}: бенд и вибрато на кнопке
+var _slides: Array[Dictionary] = []    ## следы слайда по грифу: {from, to, string, age}
 var _t := 0.0
 
 
@@ -75,7 +85,38 @@ func _process(delta: float) -> void:
 		_strike_flash[key] = float(_strike_flash[key]) + delta
 	if not _toast.is_empty():
 		_toast["t"] = float(_toast["t"]) + delta
+	_track_bends(delta)
+	for slide in _slides:
+		slide["age"] = float(slide["age"]) + delta
+	_slides = _slides.filter(func(slide: Dictionary) -> bool: return float(slide["age"]) < PadArt.SLIDE_RUN + PadArt.SLIDE_FADE)
 	queue_redraw()
+
+
+## Бенд и вибрато струн для кнопок: сила плавно догоняет настоящую, а каждый разворот тяги — вибрато.
+func _track_bends(delta: float) -> void:
+	var fretboard := Game.fretboard
+	if fretboard == null:
+		return
+	for string: String in Notes.STRINGS:
+		var view: Dictionary = _bend_view.get_or_add(string, {"amount": 0.0, "target": 0.0, "dir": 0.0, "wobble": 0.0})
+		var target := fretboard.bend_amount if fretboard.bending and fretboard.active == string else 0.0
+		var dir := signf(target - float(view["target"]))
+		if target > 0.0 and dir != 0.0 and dir != float(view["dir"]):
+			if float(view["dir"]) != 0.0:
+				view["wobble"] = minf(1.0, float(view["wobble"]) + WOBBLE_KICK)
+			view["dir"] = dir
+		if target == 0.0:
+			view["dir"] = 0.0
+		view["wobble"] = maxf(0.0, float(view["wobble"]) - delta * WOBBLE_FADE)
+		view["target"] = target
+		view["amount"] = lerpf(float(view["amount"]), target, 1.0 - exp(-delta * 30.0))
+
+
+## Палец проехал по ладам — след бежит по звенящей струне (ничего не звенит — по средней).
+func on_slid(from: String, to: String) -> void:
+	var fretboard := Game.fretboard
+	var string := fretboard.active if fretboard.ringing.has(fretboard.active) else String(Notes.STRINGS[1])
+	_slides.append({"from": from, "to": to, "string": string, "age": 0.0})
 
 
 func _draw() -> void:
@@ -289,12 +330,54 @@ func _note_ink(note: Dictionary) -> Color:
 func _draw_highway_jam() -> void:
 	var slot_now := Game.conductor.player_time() / Timing.slot_len()
 	_draw_strings(slot_now)
+	_draw_chords(slot_now)
 	for item in _played:
 		var x := slot_x(float(item["t"]) / Timing.slot_len(), slot_now)
 		if x < _highway().position.x + LABELS_W or x > _highway().end.x:
 			continue
 		Glyph.note(self, Vector2(x, lane_y(String(item["string"]))), _fret_label(String(item["note"])),
 			NOTE_R * (0.7 if item["legato"] else 1.0))
+
+
+## Аккорд сейчас: сетка нот у линии удара и имя над ней; смены аккорда впереди едут по верху дорожки к линии.
+func _draw_chords(slot_now: float) -> void:
+	var name := _chord_now()
+	var chord := Harmony.parse(name)
+	if chord.is_empty():
+		return
+	var rect := _highway()
+	var top := rect.position.y + 24
+	Glyph.neon_left(self, Vector2(Layout.HIT_X + 14, top + 2), name, 24, GOLD)
+	var free_x := Layout.HIT_X + 40 + Glyph.TITLE.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x
+	var shown := name
+	var beat_now := slot_now / Timing.SLOTS_PER_BEAT
+	var last_beat := ceili((slot_now + (rect.end.x - Layout.HIT_X) / Layout.SLOT_PX) / Timing.SLOTS_PER_BEAT)
+	for b in range(floori(beat_now) + 1, last_beat):
+		var next := Harmony.at(Game.chords, b)
+		if next == shown:
+			continue
+		shown = next
+		var x := slot_x(b * Timing.SLOTS_PER_BEAT, slot_now)
+		if x > free_x and x < rect.end.x - 40:
+			Glyph.title(self, Vector2(x + 6, top), next, 18, DIM)
+	var r := float(CHORD_GRID["r"])
+	for string: String in Notes.STRINGS:
+		var held: Dictionary = Game.fretboard.ringing.get(string, {})
+		for c in Notes.FRETS.size():
+			var fret: String = Notes.FRETS[c]
+			var at := Vector2(Layout.HIT_X + float(CHORD_GRID["x"]) + c * float(CHORD_GRID["step"]), lane_y(string))
+			var role := Harmony.role(chord, Game.tuning.midi(fret, string))
+			if role.is_empty():
+				Glyph.note(self, at, _fret_label(fret), r, Color(DIM, 0.35), Color(PANEL, 0.9))
+			else:
+				Glyph.note(self, at, _fret_label(fret), r, PANEL, GOLD if role == "root" else CHORD_TONE)
+			if not held.is_empty() and held["note"] == fret:
+				draw_arc(at, r + 5, 0.0, TAU, 28, Color.WHITE, 2.5, true)
+
+
+## Аккорд музыки, который игрок слышит сейчас (пусто — гармония не известна).
+func _chord_now() -> String:
+	return Harmony.at(Game.chords, Game.conductor.player_time() / Timing.beat_len())
 
 
 ## Меню: названия песен и звёзды; у выбранной — треугольник «играть».
@@ -402,40 +485,83 @@ func _skin_status(skin: Dictionary) -> Array:
 	return ["%d монет" % int(skin["price"]), Color.WHITE if Shop.coins >= int(skin["price"]) else RED]
 
 
-## Сенсорные кнопки режима (TouchPad): лады светятся, пока зажаты, струны вспыхивают от удара, а перед нотой
-## мигают золотом те, что надо нажать.
+## Сенсорные кнопки режима (TouchPad) рисует PadArt: лады — гриф, струны — струны, остальное — панели.
+## Перед нотой песни нужные лады, струны и сдвиг позиции мигают золотом (_cue), на грифе — точка «жми здесь»;
+## в джеме точки на грифе — ноты аккорда.
 func _draw_touch() -> void:
-	var fretboard := Game.fretboard
 	var cue := _cue()
 	var pulse := _cue_glow(cue)
+	var cells := {}
 	for button: Dictionary in TouchPad.buttons(Game.state):
-		if button["kind"] == "row":
-			continue
-		var rect: Rect2 = button["rect"]
-		var glow := 0.0
-		var cued := false
 		if button.has("fret"):
-			glow = 1.0 if fretboard.held.has(button["fret"]) else 0.0
-			cued = cue.get("frets", []).has(button["fret"])
-		elif button.has("string"):
-			glow = clampf(1.0 - float(_strike_flash.get(button["string"], 9.0)) / 0.15, 0.0, 1.0)
-			# тянет эту струну (бенд) — горит, пока тянет
-			if fretboard.bending and fretboard.active == button["string"]:
-				glow = 0.7
-			cued = cue.get("strings", []).has(button["string"])
-		elif button.has("lit"):
-			glow = 1.0 if Game.get(String(button["lit"])) else 0.0
-		var fill := KEY_FILL.lerp(GOLD.darkened(0.35), pulse) if cued else KEY_FILL
-		draw_rect(rect, fill.lerp(KEY_ON, glow))
-		draw_rect(rect, GOLD if cued else Color(0.6, 0.58, 0.7), false, 5.0 if cued else 2.0)
-		# шрифт по высоте кнопки, но чтобы подпись влезла в ширину
-		var label := String(button["label"])
-		var size := clampi(int(minf(rect.size.y * 0.32, rect.size.x / maxf(1.0, label.length()) * 1.3)), 14, 48)
-		var ink := Color.WHITE.lerp(Color(0.05, 0.05, 0.08), glow)
-		Glyph.text_center(self, rect.get_center().x, rect.get_center().y + size * 0.35, label, size, ink)
-		# нота с бендом: ударь и потяни палец вбок
-		if cued and button.has("string") and cue.get("bend", false):
-			Glyph.text_center(self, rect.get_center().x, rect.end.y - 14, "ударь и тяни вбок", 17, GOLD)
+			cells[button["fret"]] = button["rect"]
+		elif button["kind"] != "row":
+			call("_pad_" + String(button.get("art", "plain")), button, cue, pulse)
+	if not cells.is_empty():
+		PadArt.neck(self, cells, _neck_state(cue, pulse))
+
+
+func _pad_plain(button: Dictionary, _cue_now: Dictionary, _pulse: float) -> void:
+	var lit: bool = button.has("lit") and Game.get(String(button["lit"]))
+	PadArt.button(self, button["rect"], String(button["label"]), PadArt.NEON if lit else PadArt.IDLE, 1.0 if lit else 0.0)
+
+
+## Сдвиг позиции: золотой, если следующей ноте песни нужна позиция в его сторону.
+func _pad_shift(button: Dictionary, _cue_now: Dictionary, pulse: float) -> void:
+	var next := Game.performance.next_note() if Game.state == "song" else {}
+	var wanted := not next.is_empty() and signf(int(next["pos"]) - Game.tuning.position) == float(button["dir"])
+	PadArt.shift(self, button["rect"], String(button["label"]), float(button["dir"]),
+		PadArt.GOLD if wanted else PadArt.IDLE, 0.5 * (0.6 + 0.4 * sin(_t * 14.0)) if wanted else 0.0)
+
+
+## Струна: вспышка удара, бенд и вибрато (_bend_view), нота, что звучит. Выгиб — там, где палец ударил и потянул.
+func _pad_string(button: Dictionary, cue: Dictionary, pulse: float) -> void:
+	var string := String(button["string"])
+	var rect: Rect2 = button["rect"]
+	var fretboard := Game.fretboard
+	var view: Dictionary = _bend_view.get(string, {})
+	var amount := float(view.get("amount", 0.0))
+	var pull: Dictionary = Game.pad.pull_of(string) if Game.pad != null else {}
+	var cued: bool = cue.get("strings", []).has(string)
+	var flash := float(_strike_flash.get(string, 9.0))
+	var note := ""
+	if fretboard.ringing.has(string):
+		var midi := Game.tuning.midi(String(fretboard.ringing[string]["note"]), string)
+		note = Tuning.note_name(midi + roundi(amount * Tuning.BEND_SEMITONES))
+	var edge := PadArt.IDLE
+	if cued:
+		edge = PadArt.IDLE.lerp(PadArt.GOLD, 0.5 + 0.5 * pulse)
+	elif amount > 0.05:
+		edge = PadArt.HOT
+	PadArt.string_button(self, rect, {"string": string, "name": button["label"], "note": note, "edge": edge,
+		"glow": clampf(1.0 - flash / 0.15, 0.0, 1.0), "amount": amount, "wobble": float(view.get("wobble", 0.0)),
+		"apex": (pull["from"] as Vector2).x if pull.get("on", false) else -1.0,
+		"shake": maxf(0.0, 1.0 - flash / float(VIBRATO["decay"])), "t": _t,
+		"meter": maxf(0.25 if Game.needs.get("bend", true) else 0.0, clampf(amount * 4.0, 0.0, 1.0))})
+	# нота с бендом: ударь и потяни палец вбок
+	if cued and cue.get("bend", false):
+		Glyph.text_center(self, rect.get_center().x - 14, rect.end.y - 12, "ударь и тяни вбок →", 17, GOLD)
+
+
+## Что показать на грифе: зажатые и нужные лады, звенящие струны, точки (аккорд или «жми здесь»), слайды, пальцы.
+func _neck_state(cue: Dictionary, pulse: float) -> Dictionary:
+	var fretboard := Game.fretboard
+	var ringing := {}
+	for string: String in fretboard.ringing:
+		ringing[string] = {"fret": fretboard.ringing[string]["note"],
+			"shake": maxf(0.0, 1.0 - float(_strike_flash.get(string, 9.0)) / float(VIBRATO["decay"]))}
+	var dots: Array[Dictionary] = []
+	var chord := Harmony.parse(_chord_now()) if Game.state == "jam" else {}
+	for fret: String in Notes.FRETS:
+		for string: String in Notes.STRINGS:
+			var role := Harmony.role(chord, Game.tuning.midi(fret, string))
+			if not role.is_empty():
+				dots.append({"fret": fret, "string": string, "ink": PadArt.GOLD if role == "root" else PadArt.NEON})
+	for fret: String in cue.get("frets", []):
+		for string: String in cue.get("strings", []):
+			dots.append({"fret": fret, "string": string, "ink": Color(PadArt.GOLD, 0.4 + 0.6 * pulse)})
+	return {"held": fretboard.held, "cued": cue.get("frets", []), "pulse": pulse, "ringing": ringing, "dots": dots,
+		"slides": _slides, "fingers": Game.pad.points.values() if Game.pad != null else [], "t": _t}
 
 
 ## Полоска прокрутки справа у списка (на сенсоре, если строк больше, чем видно).
@@ -505,6 +631,7 @@ func _draw_map() -> void:
 	var tuning := Game.tuning
 	var fretboard := Game.fretboard
 	var map := Layout.MAP
+	var chord := Harmony.parse(_chord_now())
 	draw_rect(map, Color(PANEL, 0.92))
 	var strings := Notes.STRINGS.duplicate()
 	strings.reverse()
@@ -519,9 +646,12 @@ func _draw_map() -> void:
 			var fret: String = Notes.FRETS[c]
 			var box := Rect2(map.position.x + (c + 1) * cell.x + 4, top + 4, cell.x - 8, cell.y - 8)
 			var lit: bool = not ringing.is_empty() and ringing["note"] == fret
-			draw_rect(box, Color(0.4, 0.36, 0.2) if lit else Color(0.14, 0.13, 0.2))
-			draw_rect(box, GOLD if lit else Color(0.5, 0.48, 0.6), false, 2.0)
 			var midi := tuning.midi(fret, string)
+			var role := Harmony.role(chord, midi)
+			draw_rect(box, Color(0.4, 0.36, 0.2) if lit else Color(0.14, 0.13, 0.2))
+			if not role.is_empty():
+				draw_rect(box, Color(GOLD if role == "root" else CHORD_TONE, 0.25))
+			draw_rect(box, GOLD if lit else Color(0.5, 0.48, 0.6), false, 2.0)
 			Glyph.text_center(self, box.get_center().x, box.position.y + box.size.y * 0.5 + 2, Tuning.note_name(midi), 20, Color.WHITE)
 			Glyph.text_center(self, box.get_center().x, box.end.y - 6, "%s · %s" % [InputConfig.key_label(InputConfig.fret_action(fret)),
 				Tuning.solfege(midi)], 12, DIM)

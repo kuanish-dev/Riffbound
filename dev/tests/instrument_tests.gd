@@ -19,7 +19,7 @@ func before_each() -> void:
 	fb.played.connect(func(note: String, string: String, _t: float) -> void: log.append("strike %s:%s" % [note, string]))
 	fb.slurred.connect(func(note: String, string: String, _t: float) -> void: log.append("slur %s:%s" % [note, string]))
 	fb.muted.connect(func(string: String, _t: float) -> void: log.append("mute %s" % string))
-	fb.bent.connect(func(string: String, amount: float, _t: float) -> void: log.append("bend %s %.0f" % [string, amount]))
+	fb.bent.connect(func(string: String, amount: float, _t: float) -> void: log.append("bend %s %.1f" % [string, amount]))
 
 
 func after_all() -> void:
@@ -77,9 +77,31 @@ func test_legato_window_closes() -> void:
 func test_bend_follows_active_string() -> void:
 	fb.press_fret("2")
 	fb.strike("high")
-	fb.set_bend(true)
-	fb.set_bend(false)
-	eq(log.slice(log.size() - 2), ["bend high 1", "bend high 0"], "бенд и отпуск на последней струне")
+	fb.set_bend(1.0)
+	fb.set_bend(0.0)
+	eq(log.slice(log.size() - 2), ["bend high 1.0", "bend high 0.0"], "бенд и отпуск на последней струне")
+
+
+func test_slide_long_after_strike() -> void:
+	fb.press_fret("1")
+	fb.strike("low")
+	_at(1.0 + Fretboard.LEGATO_WINDOW + 1.0)
+	fb.sliding = true
+	fb.press_fret("3")
+	fb.release_fret("1")
+	fb.sliding = false
+	eq(log, ["strike 1:low", "slur 3:low"], "палец поехал по ладам — слайд, хоть и долго после удара")
+
+
+func test_bend_any_height() -> void:
+	fb.press_fret("1")
+	fb.strike("mid")
+	fb.set_bend(0.3)
+	fb.set_bend(1.2)
+	fb.set_bend(9.0)
+	fb.set_bend(0.0)
+	eq(log.slice(log.size() - 4), ["bend mid 0.3", "bend mid 1.2", "bend mid %.1f" % Tuning.BEND_MAX, "bend mid 0.0"],
+		"тянешь на сколько угодно — до полутора тонов")
 
 
 func _at(time: float) -> void:

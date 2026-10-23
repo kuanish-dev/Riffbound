@@ -1,7 +1,7 @@
 class_name MidiFile
 ## Стандартный MIDI-файл (SMF, формат 1) из слоёв лупера: дорожка темпа и по дорожке на слой.
 ## Струна — свой канал (порядок Notes.STRINGS), чтобы бенд одной струны не тянул остальные;
-## в начале каждого канала диапазон бенда ставится в Tuning.BEND_SEMITONES.
+## в начале каждого канала диапазон бенда ставится в BEND_RANGE полутонов — хватает на самый сильный бенд.
 
 const PPQ := 480
 const VELOCITY := 96
@@ -39,6 +39,11 @@ static func vlq(value: int) -> PackedByteArray:
 	return bytes
 
 
+## Диапазон бенда в полутонах — до самого сильного бенда.
+static func bend_range() -> int:
+	return ceili(Tuning.BEND_SEMITONES * Tuning.BEND_MAX)
+
+
 static func ticks(seconds: float) -> int:
 	return roundi(seconds / Timing.beat_len() * PPQ)
 
@@ -57,7 +62,7 @@ static func _layer_events(layer: Array) -> Array:
 	var events: Array = []
 	var sounding := {}                      ## канал → звучащие ноты
 	for channel in Notes.STRINGS.size():
-		for cc: Array in [[101, 0], [100, 0], [6, int(Tuning.BEND_SEMITONES)], [38, 0]]:
+		for cc: Array in [[101, 0], [100, 0], [6, bend_range()], [38, 0]]:
 			events.append([0, 0, PackedByteArray([0xB0 | channel, cc[0], cc[1]])])
 		sounding[channel] = []
 	for event: Dictionary in layer:
@@ -65,7 +70,7 @@ static func _layer_events(layer: Array) -> Array:
 		var at := ticks(float(event["t"]))
 		var kind := String(event["kind"])
 		if kind == "bend":
-			var value := clampi(8192 + roundi(float(event["amount"]) * 8191.0), 0, 16383)
+			var value := clampi(8192 + roundi(float(event["amount"]) * Tuning.BEND_SEMITONES / bend_range() * 8191.0), 0, 16383)
 			events.append([at, 2, PackedByteArray([0xE0 | channel, value & 0x7F, (value >> 7) & 0x7F])])
 			continue
 		for midi: int in sounding[channel]:

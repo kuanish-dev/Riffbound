@@ -106,7 +106,8 @@ func test_song_from_loop_layer() -> void:
 		{"t": 0.9, "kind": "mute", "string": "low"},
 		{"t": 1.2, "kind": "dead", "string": "mid", "fret": "X", "pos": 0, "midis": []},
 	]
-	var song := Songs.from_layer(layer, Tuning.song(), "rock")
+	var song := Songs.from_layer(layer, Tuning.song(), "rock", Harmony.progression(4, true))
+	eq(song["chords"], ["Em", "Em", "C", "D"], "аккорды круга, под который играли")
 	var notes := Songs.notes_of(song)
 	eq(notes.size(), 3, "три ноты")
 	eq([notes[0]["slot"], notes[0]["len"]], [LEAD, 1], "удар до легато")

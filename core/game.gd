@@ -8,6 +8,7 @@ var looper: Looper
 var voices: GuitarVoices
 var performance: SongJudge
 var style: StyleMeter
+var pad: TouchPad
 ## menu — выбор песни, song — играем песню, results — итог песни, jam — свободная игра, shop — магазин гитар.
 var state := "menu"
 ## Выбранная в меню песня (индекс в Songs.all()).
@@ -26,6 +27,8 @@ var scroll := {"menu": 0.0, "shop": 0.0}
 var more := false
 ## Что сейчас звучит в джеме: {id, name, kind (style/track), bpm, …} — для показа.
 var music := {}
+## Аккорды музыки по тактам от начала часов (идут по кругу, Harmony): пусто — гармония не известна.
+var chords: Array[String] = []
 ## Итог последней песни: score, stars, accuracy, record.
 var last_result := {}
 ## Сенсорное управление (TouchPad) вместо подсказок клавиш.

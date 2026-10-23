@@ -2,10 +2,26 @@ class_name DevTools
 ## CLI-режимы разработки (см. DevArgs): тесты, симуляция с ботом, снимок экрана.
 ## Всё здесь — только для разработки, игра от этого файла не зависит.
 
+## Жесты пальцами для снимков (--gesture, с --touch): [время (с, часы игры), палец, что, кнопка, сдвиг от её
+## середины]. press / drag / lift — касание, ведение, отпускание; wiggle — с этого времени палец качается вокруг
+## сдвига на ±WIGGLE px (вибрато).
+const GESTURES := {
+	"bend": [[1.0, 0, "press", "fret_2", Vector2.ZERO], [1.2, 1, "press", "strike_mid", Vector2(-80, 0)],
+		[1.3, 1, "drag", "strike_mid", Vector2(-40, 0)], [1.4, 1, "drag", "strike_mid", Vector2(10, 0)],
+		[1.5, 1, "drag", "strike_mid", Vector2(60, 0)], [1.6, 1, "drag", "strike_mid", Vector2(80, 0)]],
+	"vibrato": [[1.0, 0, "press", "fret_3", Vector2.ZERO], [1.2, 1, "press", "strike_high", Vector2(-80, 0)],
+		[1.3, 1, "drag", "strike_high", Vector2(-20, 0)], [1.4, 1, "wiggle", "strike_high", Vector2(0, 0)]],
+	"slide": [[1.0, 0, "press", "fret_1", Vector2.ZERO], [1.2, 1, "press", "strike_low", Vector2.ZERO],
+		[1.3, 1, "lift", "strike_low", Vector2.ZERO], [1.5, 0, "drag", "fret_2", Vector2(-40, 0)],
+		[1.55, 0, "drag", "fret_3", Vector2(-40, 0)]],
+}
+const WIGGLE := {"px": 22.0, "hz": 6.0}
+
+
 ## Каждый метод test_* каждого набора: before_each() → тест → итог; в конце набора — after_all().
 static func run_tests(main: Node) -> void:
 	var suites: Array[TestSuite] = [CoreTests.new(), InstrumentTests.new(), SongTests.new(), JamTests.new(), TouchTests.new(),
-		MusicTests.new(), ShopTests.new(), StyleTests.new(), SoundTests.new()]
+		MusicTests.new(), HarmonyTests.new(), ShopTests.new(), StyleTests.new(), SoundTests.new()]
 	var total := 0
 	var failed := 0
 	for suite in suites:
@@ -27,6 +43,39 @@ static func run_tests(main: Node) -> void:
 		suite.after_all()
 	print("[test] %s — %d/%d" % ["PASS" if failed == 0 else "FAIL", total - failed, total])
 	main.get_tree().quit(1 if failed > 0 else 0)
+
+
+## Шаги жеста, чьё время пришло, — в TouchPad, как от настоящих пальцев.
+static func _gesture_tick(pad: TouchPad, steps: Array, done: Dictionary, now: float) -> void:
+	for i in steps.size():
+		var step: Array = steps[i]
+		if now < float(step[0]) or done.has(i):
+			continue
+		var pos := _button_center(String(step[3])) + (step[4] as Vector2)
+		var op := String(step[2])
+		if op == "wiggle":
+			pos.x += float(WIGGLE["px"]) * sin(now * TAU * float(WIGGLE["hz"]))
+		else:
+			done[i] = true
+		var event: InputEvent
+		if op == "drag" or op == "wiggle":
+			var drag := InputEventScreenDrag.new()
+			drag.position = pos
+			event = drag
+		else:
+			var touch := InputEventScreenTouch.new()
+			touch.position = pos
+			touch.pressed = op == "press"
+			event = touch
+		event.set("index", int(step[1]))
+		pad._unhandled_input(event)
+
+
+static func _button_center(action: String) -> Vector2:
+	for button: Dictionary in TouchPad.GUITAR:
+		if button["action"] == action:
+			return (button["rect"] as Rect2).get_center()
+	return Vector2.ZERO
 
 
 ## Бот играет все встроенные песни через настоящий ввод; PASS, если в каждой сыграны все ноты,
@@ -102,8 +151,11 @@ static func screenshot(main: Main) -> void:
 	var at := float(DevArgs.get_str("at", "8"))
 	var frames := 0
 	var started := Time.get_ticks_msec()
+	var gesture: Array = GESTURES.get(DevArgs.get_str("gesture", ""), [])
+	var done := {}
 	while (Game.state in ["song", "jam"] and main.conductor.now() < at) or (Game.state in ["menu", "shop"] and frames < 30):
 		frames += 1
+		_gesture_tick(main.touch_pad, gesture, done, main.conductor.now())
 		await main.get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	var path := DevArgs.get_str("screenshot")

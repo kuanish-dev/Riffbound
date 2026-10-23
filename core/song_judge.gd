@@ -15,6 +15,7 @@ const MULT_MAX := 4
 const STARS := [0.5, 0.7, 0.85, 0.95, 1.0]   ## доля сыгранных нот для 1…5 звёзд
 const WRONG_RANGE := 0.3         ## удар считается «не той нотой», если нота песни на этой струне ближе
 const TECH_NAMES := {"h": "Хаммер-он!", "p": "Пулл-офф!", "bend": "Бенд!"}
+const BEND_COUNTS := 0.5         ## бенд засчитан, если струна подтянута хотя бы на полтона
 
 var song := {}
 var notes: Array[Dictionary] = []    ## ноты песни + t, end, midi, state (wait/hit/miss), tech_ok
@@ -120,7 +121,7 @@ func play(string: String, midi: int, time: float, legato: bool) -> void:
 
 
 func bend(string: String, amount: float, _time: float) -> void:
-	_bent[string] = amount > 0.0
+	_bent[string] = amount >= BEND_COUNTS
 	if amount > 0.0 and _sounding.has(string):
 		_check_bend(notes[int(_sounding[string])])
 

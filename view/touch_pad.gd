@@ -2,24 +2,31 @@ class_name TouchPad
 extends Node
 ## Сенсорное управление. Пальцы превращаются в те же действия ввода, что и клавиши (InputConfig),
 ## поэтому гитара, песни и джем ничего не знают о сенсоре. Кнопки режима — buttons(state):
-## - hold — держится пальцем (лады); скольжение пальца на соседний лад сначала жмёт новый,
-##   потом отпускает старый — получается легато, как на грифе;
+## - hold — держится пальцем (лады); палец едет на соседний лад, не отрываясь, — слайд: на время перехода
+##   держится «slide», новый лад жмётся раньше, чем отпускается старый (звук съезжает плавно); второй палец
+##   на лад выше — хаммер-он;
 ## - tap — срабатывает при касании и когда палец въезжает в кнопку: удар по струне (проведи через
 ##   струны сверху вниз — бой), позиция, кнопки меню и джема. Ударил по струне и, не отпуская, потянул палец
-##   вбок дальше BEND_PX — бенд («bend» держится), вернул ближе BEND_BACK или отпустил — бенд отпущен;
+##   вбок — бенд («bend_pull»): дальше BEND_DEAD нота поднимается, и чем дальше тянешь, тем выше (BEND_RANGE —
+##   на тон, до Tuning.BEND_MAX); держишь палец на струне и покачиваешь — вибрато; вернул к точке удара или
+##   отпустил — струна отпущена; поехал на другую струну — это бой, бенд отпущен;
 ## - row — строка списка (песни в меню, гитары в магазине — lists()). Список листается пальцем вверх-вниз
 ##   (Game.scroll); касание без сдвига (меньше SCROLL_SLOP) срабатывает при отпускании: в меню сразу запускает
 ##   песню («instant»), в магазине — выбирает, повторное — «start».
 ## «lit» — флаг Game, при котором кнопка подсвечена (переключатель вроде метронома); «needs» — кнопка нужна,
 ## только если песне нужно это умение (Game.needs: бенд, сдвиг позиции); «more» — кнопка панели «Ещё» в джеме
 ## (видна, пока Game.more). Так на экране только то, что нужно сейчас.
+## Рисует их Hud через PadArt: лады («fret») собираются в гриф, «art» — как рисовать остальные (струна, стрелки
+## позиции; нет — обычная панель).
 ## Включается на сенсорных устройствах или флагом --touch (мышь тогда работает как палец).
 
 signal row_selected                 ## касание выбрало другую строку списка (для звука)
+signal slid(from_fret: String, to_fret: String)   ## палец проехал по ладам (для следа слайда)
 
 const SCROLL_SLOP := 14.0           ## палец сдвинулся меньше — касание, больше — прокрутка списка
-const BEND_PX := 45.0               ## насколько потянуть палец вбок от точки удара, чтобы натянуть струну
-const BEND_BACK := 25.0             ## вернул ближе — струна отпущена
+const BEND_DEAD := 6.0              ## тяга вбок меньше этого — ещё не бенд; мало, чтобы покачивание давало вибрато
+const BEND_RANGE := 110.0           ## ещё столько вбок — струна поднята на тон; дальше — до Tuning.BEND_MAX
+const BEND_STEP := 0.02             ## сила бенда меняется хотя бы на столько — передаём (не засыпать событиями)
 const BEND_SIDEWAYS := 1.5          ## тянуть надо вбок: сдвиг по x больше сдвига по y во столько раз (иначе это бой)
 
 ## Кнопки, которые есть при игре на гитаре (песня и джем). Струны — столбиком справа на всю высоту от
@@ -30,11 +37,13 @@ const GUITAR := [
 	{"kind": "hold", "action": "fret_2", "fret": "2", "label": "2", "rect": Rect2(182, 520, 152, 190)},
 	{"kind": "hold", "action": "fret_3", "fret": "3", "label": "3", "rect": Rect2(344, 520, 152, 190)},
 	{"kind": "hold", "action": "fret_4", "fret": "4", "label": "4", "rect": Rect2(506, 520, 152, 190)},
-	{"kind": "tap", "action": "position_down", "needs": "positions", "label": "← поз", "rect": Rect2(676, 520, 146, 190)},
-	{"kind": "tap", "action": "position_up", "needs": "positions", "label": "поз →", "rect": Rect2(834, 520, 146, 190)},
-	{"kind": "tap", "action": "strike_high", "string": "high", "label": "верхняя", "rect": Rect2(996, 262, 264, 140)},
-	{"kind": "tap", "action": "strike_mid", "string": "mid", "label": "средняя", "rect": Rect2(996, 416, 264, 140)},
-	{"kind": "tap", "action": "strike_low", "string": "low", "label": "нижняя", "rect": Rect2(996, 570, 264, 140)},
+	{"kind": "tap", "art": "shift", "action": "position_down", "needs": "positions", "label": "поз", "dir": -1.0,
+		"rect": Rect2(676, 520, 146, 190)},
+	{"kind": "tap", "art": "shift", "action": "position_up", "needs": "positions", "label": "поз", "dir": 1.0,
+		"rect": Rect2(834, 520, 146, 190)},
+	{"kind": "tap", "art": "string", "action": "strike_high", "string": "high", "label": "верхняя", "rect": Rect2(996, 262, 264, 140)},
+	{"kind": "tap", "art": "string", "action": "strike_mid", "string": "mid", "label": "средняя", "rect": Rect2(996, 416, 264, 140)},
+	{"kind": "tap", "art": "string", "action": "strike_low", "string": "low", "label": "нижняя", "rect": Rect2(996, 570, 264, 140)},
 ]
 const BACK := {"kind": "tap", "action": "quit", "label": "← меню", "rect": Rect2(1090, 2, 186, 64)}
 ## Кнопки режима сверх гитары.
@@ -71,12 +80,13 @@ const EXTRA := {
 }
 
 var active := false
-## Куда уходят действия: (action, pressed). По умолчанию — в Input, как от клавиатуры; тесты подменяют.
+## Куда уходят действия: (action, pressed, strength). По умолчанию — в Input, как от клавиатуры; тесты подменяют.
 var sink: Callable = _to_input
 var _touches := {}                  ## палец → кнопка под ним (или пусто)
 var _holds := {}                    ## действие hold → сколько пальцев держат
+var points := {}                    ## палец → где он сейчас (для показа)
 var _press := {}                    ## палец на списке: {row, from, scroll (прокрутка в начале), moved}
-var _bends := {}                    ## палец, ударивший по струне: {from (точка удара), on (тянет ли)}
+var _bends := {}                    ## палец, ударивший по струне: {string, from (точка удара), pos, on (тянет ли), amount}
 
 
 static func buttons(state: String) -> Array:
@@ -159,6 +169,14 @@ func holding(action: String) -> bool:
 	return int(_holds.get(action, 0)) > 0
 
 
+## Палец, который ударил по струне и, может быть, тянет её: {string, from, pos, on, amount} или пусто.
+func pull_of(string: String) -> Dictionary:
+	for bend: Dictionary in _bends.values():
+		if bend["string"] == string:
+			return bend
+	return {}
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not active:
 		return
@@ -178,6 +196,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _press_at(index: int, pos: Vector2) -> void:
+	points[index] = pos
 	var button := button_at(Game.state, pos)
 	if button.get("kind") == "row":
 		_press[index] = {"row": button, "from": pos, "scroll": float(Game.scroll.get(Game.state, 0.0)), "moved": false}
@@ -187,20 +206,29 @@ func _press_at(index: int, pos: Vector2) -> void:
 
 
 func _drag_to(index: int, pos: Vector2) -> void:
+	points[index] = pos
 	if _press.has(index):
 		_scroll(index, pos)
 		return
-	# тянет струну — бой и повторные удары не мешают
-	if not _bends.get(index, {}).get("on", false):
-		var button := button_at(Game.state, pos)
-		if button != _touches.get(index, {}):
-			_move(index, button)
-			if button.has("string"):
-				_aim_bend(index, button, pos)
+	var button := button_at(Game.state, pos)
+	var old: Dictionary = _touches.get(index, {})
+	# тянет струну: выход за кнопку и возврат — не новый удар; переход на другую струну — бой
+	var bending: bool = _bends.get(index, {}).get("on", false)
+	if button != old and (not bending or button.has("string")):
+		var slide := button.has("fret") and old.has("fret")
+		if slide:
+			sink.call("slide", true, 1.0)
+		_move(index, button)
+		if slide:
+			sink.call("slide", false, 0.0)
+			slid.emit(String(old["fret"]), String(button["fret"]))
+		if button.has("string"):
+			_aim_bend(index, button, pos)
 	_track_bend(index, pos)
 
 
 func _lift(index: int) -> void:
+	points.erase(index)
 	if _press.has(index):
 		if not _press[index]["moved"]:
 			_begin_row(_press[index]["row"])
@@ -229,26 +257,31 @@ func _scroll(index: int, pos: Vector2) -> void:
 func _aim_bend(index: int, button: Dictionary, pos: Vector2) -> void:
 	_release_bend(index)
 	if button.has("string"):
-		_bends[index] = {"from": pos, "on": false}
+		_bends[index] = {"string": button["string"], "from": pos, "pos": pos, "on": false, "amount": 0.0}
 
 
+## Тяга пальца вбок от точки удара → сила бенда. Начать тянуть надо вбок (иначе это бой), дальше — как угодно.
 func _track_bend(index: int, pos: Vector2) -> void:
 	if not _bends.has(index):
 		return
 	var bend: Dictionary = _bends[index]
+	bend["pos"] = pos
 	var shift := pos - (bend["from"] as Vector2)
-	var sideways := absf(shift.x) >= absf(shift.y) * BEND_SIDEWAYS
-	if not bend["on"] and absf(shift.x) >= BEND_PX and sideways:
-		bend["on"] = true
-		_hold("bend", 1)
-	elif bend["on"] and absf(shift.x) < BEND_BACK:
+	if not bend["on"]:
+		bend["on"] = absf(shift.x) >= BEND_DEAD and absf(shift.x) >= absf(shift.y) * BEND_SIDEWAYS
+	if not bend["on"]:
+		return
+	var amount := clampf((absf(shift.x) - BEND_DEAD) / BEND_RANGE, 0.0, Tuning.BEND_MAX)
+	if absf(amount - float(bend["amount"])) >= BEND_STEP or (amount == 0.0) != (float(bend["amount"]) == 0.0):
+		bend["amount"] = amount
+		sink.call("bend_pull", amount > 0.0, amount / Tuning.BEND_MAX)
+	if amount == 0.0:
 		bend["on"] = false
-		_hold("bend", -1)
 
 
 func _release_bend(index: int) -> void:
-	if _bends.get(index, {}).get("on", false):
-		_hold("bend", -1)
+	if float(_bends.get(index, {}).get("amount", 0.0)) > 0.0:
+		sink.call("bend_pull", false, 0.0)
 	_bends.erase(index)
 
 
@@ -267,8 +300,8 @@ func _begin_hold(button: Dictionary) -> void:
 
 
 func _begin_tap(button: Dictionary) -> void:
-	sink.call(String(button["action"]), true)
-	sink.call(String(button["action"]), false)
+	sink.call(String(button["action"]), true, 1.0)
+	sink.call(String(button["action"]), false, 0.0)
 
 
 func _begin_row(button: Dictionary) -> void:
@@ -285,13 +318,14 @@ func _hold(action: String, delta: int) -> void:
 	var after := maxi(0, before + delta)
 	_holds[action] = after
 	if before == 0 and after > 0:
-		sink.call(action, true)
+		sink.call(action, true, 1.0)
 	elif before > 0 and after == 0:
-		sink.call(action, false)
+		sink.call(action, false, 0.0)
 
 
-func _to_input(action: String, pressed: bool) -> void:
+func _to_input(action: String, pressed: bool, strength: float) -> void:
 	var event := InputEventAction.new()
 	event.action = action
 	event.pressed = pressed
+	event.strength = strength
 	Input.parse_input_event(event)

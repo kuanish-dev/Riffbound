@@ -9,6 +9,7 @@ class_name DevArgs
 ##   --jam                сразу джем
 ##   --backing=<id>       подложка джема: стиль Backing.STYLES или трек Tracks (rock, funked_up, user:<файл>…)
 ##   --touch              сенсорное управление на компьютере (мышь — как палец)
+##   --gesture=<имя>      снимок с --touch: пальцы делают жест DevTools.GESTURES (bend, vibrato, slide)
 ##   --metronome          метроном включён с запуска
 ##   --more               в джеме сразу открыта панель «Ещё»
 ##   --shop               снимок: магазин гитар; --skin=<N> — какая гитара выбрана (с 0)

@@ -21,7 +21,8 @@ const BASE_MIDI := 48           ## C3: тоника на нижней струн
 const NOTES_PER_STRING := 3
 const MIDI_MIN := 40            ## E2 — диапазон сэмплов гитары
 const MIDI_MAX := 88            ## E6
-const BEND_SEMITONES := 2.0     ## бенд — на тон вверх
+const BEND_SEMITONES := 2.0     ## бенд силой 1 — на тон вверх (пробел на клавиатуре)
+const BEND_MAX := 1.5           ## сильнее всего струну можно подтянуть на полтора тона (тяга пальцем на сенсоре)
 ## Строй по умолчанию — ми, минорная пентатоника (с него начинается джем).
 const SONG := {"key": 4, "scale": "minor_pentatonic"}
 

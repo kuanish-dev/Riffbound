@@ -2,7 +2,8 @@ class_name Tracks
 ## Треки для джема (и для своих песен, записанных под трек).
 ## BUILT_IN — CC0-петли (авторы — CREDITS.md). Их собирает tools/build_assets.py: режет ровно в «bars» тактов
 ## от сильной доли (offset — пре-ролл перед ней), темп, такты и тональность считает там же — сетка игры не
-## уезжает на повторах.
+## уезжает на повторах. «chords» — аккорд каждого такта (Harmony), найденный там же по звуку (--chords);
+## у своих треков аккордов нет.
 ## Свои треки игрок кладёт в папку Документы/Riffbound (user_dir, туда же джем сохраняет MIDI). Не «Музыка»:
 ## на Android 11+ Godot читает напрямую только «Документы» и «Загрузки», а чужие файлы в «Музыке» ему не открыть.
 ## Темп и тональность — из имени файла
@@ -16,17 +17,23 @@ const LOADERS := {"ogg": "AudioStreamOggVorbis", "mp3": "AudioStreamMP3", "wav":
 const TAIL := 0.05                     ## своя петля кончается чуть раньше файла
 const BUILT_IN := [
 	{"id": "rock_theme_3", "name": "Rock Theme 3", "author": "Umplix", "file": "res://assets/tracks/rock_theme_3.ogg",
-		"bpm": 120.0, "bars": 32, "offset": 0.01, "key": 2, "scale": "minor_pentatonic"},
+		"bpm": 120.0, "bars": 32, "offset": 0.01, "key": 2, "scale": "minor_pentatonic",
+		"chords": "Gm F A Dm Gm F A Dm Gm F C Dm Gm F A C Gm F Am Dm Gm F Am Dm Gm F C Dm Gm F C Dm"},
 	{"id": "rocky_loop", "name": "Rocky Musicloop", "author": "johndekale", "file": "res://assets/tracks/rocky_loop.ogg",
-		"bpm": 90.0, "bars": 19, "offset": 0.01, "key": 0, "scale": "minor_pentatonic"},
+		"bpm": 90.0, "bars": 19, "offset": 0.01, "key": 0, "scale": "minor_pentatonic",
+		"chords": "Cm Cm Cm Cm Cm Cm Cm Cm Cm Cm Fm Fm Cm Fm Cm Cm Fm Cm Cm"},
 	{"id": "unchained_destiny", "name": "Unchained Destiny", "author": "nene", "file": "res://assets/tracks/unchained_destiny.ogg",
-		"bpm": 127.02, "bars": 32, "offset": 0.01, "key": 0, "scale": "minor_pentatonic"},
+		"bpm": 127.02, "bars": 32, "offset": 0.01, "key": 0, "scale": "minor_pentatonic",
+		"chords": "Cm Cm G# Cm Cm Cm G# Cm Cm Cm Cm Cm Cm Cm G# Gm Cm Cm G# Gm Cm Cm G# Cm Cm Fm G# Cm Cm Fm G# Cm"},
 	{"id": "jrpg_battle", "name": "JRPG Rock Battle", "author": "HydroGene", "file": "res://assets/tracks/jrpg_battle.ogg",
-		"bpm": 152.0, "bars": 72, "offset": 0.01, "key": 6, "scale": "minor_pentatonic"},
+		"bpm": 152.0, "bars": 72, "offset": 0.01, "key": 6, "scale": "minor_pentatonic",
+		"chords": "F#m F#m F#m F#m F#m F#m F#m D C#m C#m C# C# F#m F#m F#m F#m F#m F#m F#m D C#m C#m C# A E E C#m A E Bm E C# F#m F#m F#m F#m F#m F#m F#m F#m F#m F#m F#m D C#m C#m E C# F#m F#m F#m F#m F#m F#m F#m D C#m C#m Bm A E E C#m A E Bm E F#m F#m F#m F#m F#m"},
 	{"id": "background_loop", "name": "Background Loop", "author": "Pro Sensory", "file": "res://assets/tracks/background_loop.ogg",
-		"bpm": 140.0, "bars": 56, "offset": 0.01, "key": 7, "scale": "major_pentatonic"},
+		"bpm": 140.0, "bars": 56, "offset": 0.01, "key": 7, "scale": "major_pentatonic",
+		"chords": "G C G Em G C G Em G C G Em D C G Em G C G C G C G D G C D Em G C G Em G C D Em G Bm G Em G C G Em G C G Em G C G Em G C G Em"},
 	{"id": "funked_up", "name": "Funked Up", "author": "Joth", "file": "res://assets/tracks/funked_up.ogg",
-		"bpm": 86.99, "bars": 24, "offset": 0.01, "key": 9, "scale": "minor_pentatonic"},
+		"bpm": 86.99, "bars": 24, "offset": 0.01, "key": 9, "scale": "minor_pentatonic",
+		"chords": "Em Am Em Am Em Am Am Am Em Am Am Am Em Am Am Am Am Am Am Am Am Am Em Am"},
 ]
 ## Лад тональности из имени файла → гамма джема.
 const MODE_SCALES := {"minor": "minor_pentatonic", "major": "major_pentatonic"}
@@ -73,7 +80,7 @@ static func user_track(file: String, remembered: Dictionary) -> Dictionary:
 	info.merge(remembered, true)
 	return {"id": "user:" + file, "name": file.get_basename(), "author": "", "user": true,
 		"file": user_dir().path_join(file), "bpm": float(info.get("bpm", 0.0)), "start": float(info.get("start", 0.0)),
-		"offset": 0.0, "bars": 0, "key": int(info.get("key", -1)), "scale": String(info.get("scale", ""))}
+		"offset": 0.0, "bars": 0, "key": int(info.get("key", -1)), "scale": String(info.get("scale", "")), "chords": ""}
 
 
 ## Темп и тональность из имени: «120bpm» / «95 BPM»; тональность — отдельным словом: Am, F#m, Bb, C major,

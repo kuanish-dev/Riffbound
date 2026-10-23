@@ -2,11 +2,13 @@ class_name StringVoice
 extends Node
 ## Одна струна: одна нота за раз (аккорд-двузвучие — несколько голосов этой струны).
 ## Нота звенит, пока её не заглушат (mute — короткий спад) или не затухнет сама.
-## Высота — подтяжка ближайшего сэмпла (pitch_scale); легато и бенд меняют её, не начиная ноту заново.
+## Высота — подтяжка ближайшего сэмпла (pitch_scale); легато, слайд и бенд меняют её, не начиная ноту заново.
+## Слайд (slur с glide) — высота не прыгает, а съезжает к новой ноте со скоростью GLIDE_SPEED, как палец по ладам.
 ## Команды — события гитары {kind, string, midis, amount}: pluck, slur, mute, dead, bend.
 
 const RELEASE := 0.06       ## секунд спада при глушении
 const BEND_SPEED := 16.0    ## полутонов в секунду — с такой скоростью тянется бенд
+const GLIDE_SPEED := 30.0   ## полутонов в секунду — с такой скоростью едет слайд
 const VOLUME_DB := -1.0
 
 var bank: SampleBank
@@ -17,6 +19,7 @@ var _sample_midis: Array = []
 var _midis: Array = []
 var _bend := 0.0
 var _bend_target := 0.0
+var _glide := 0.0           ## слайд: на сколько полутонов звук ещё не доехал до ноты
 var _fade := -1.0           ## > 0 — идёт спад после глушения
 
 
@@ -44,6 +47,8 @@ func slur(event: Dictionary) -> void:
 	for i in range(midis.size(), _active):
 		_players[i].stop()
 	_active = mini(_active, midis.size())
+	if event.get("glide", false) and not _midis.is_empty() and not midis.is_empty():
+		_glide += float(_midis[0]) - float(midis[0])
 	_midis = midis.slice(0, _active)
 	_fade = -1.0
 	_apply_pitch()
@@ -68,9 +73,11 @@ func silence() -> void:
 func _process(delta: float) -> void:
 	if _active == 0:
 		_bend = _bend_target
+		_glide = 0.0
 		return
-	if _bend != _bend_target:
+	if _bend != _bend_target or _glide != 0.0:
 		_bend = move_toward(_bend, _bend_target, BEND_SPEED * delta)
+		_glide = move_toward(_glide, 0.0, GLIDE_SPEED * delta)
 		_apply_pitch()
 	if _fade > 0.0:
 		_fade -= delta
@@ -87,6 +94,7 @@ func _start(streams: Array, midis: Array, samples: Array) -> void:
 	silence()
 	_sample_midis = samples.duplicate()
 	_midis = midis.duplicate()
+	_glide = 0.0
 	_active = streams.size()
 	for i in _active:
 		var player := _player(i)
@@ -98,7 +106,7 @@ func _start(streams: Array, midis: Array, samples: Array) -> void:
 
 func _apply_pitch() -> void:
 	for i in mini(_active, _midis.size()):
-		_players[i].pitch_scale = pow(2.0, (float(_midis[i]) + _bend - float(_sample_midis[i])) / 12.0)
+		_players[i].pitch_scale = pow(2.0, (float(_midis[i]) + _bend + _glide - float(_sample_midis[i])) / 12.0)
 
 
 ## Аккорд звучит тише каждой ноты, чтобы в сумме не громче одиночной.

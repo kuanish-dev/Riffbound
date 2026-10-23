@@ -10,7 +10,8 @@
     bass/<midi>.wav, drums/<имя>.wav         — 16-бит PCM: из них игра сама собирает бэкинг
     tracks/<id>.ogg                          — CC0-треки для джема
     fx/*.png, fonts/*                        — текстуры свечения и шрифты
-и печатает темп, число тактов и тональность треков — их переносим в core/tracks.gd.
+и печатает темп, число тактов, тональность и аккорды по тактам треков — их переносим в core/tracks.gd.
+    python tools/build_assets.py --chords    — только аккорды уже собранных треков (assets/tracks)
 """
 import json
 import shutil
@@ -168,6 +169,33 @@ def key_of(profile: np.ndarray) -> tuple:
                for k in range(12) for minor, template in ((False, MAJOR), (True, MINOR)))
 
 
+# Трезвучия тональности: ступень (полутоны от тоники) → лад аккорда. В миноре V бывает и мажорным (гармонический).
+DIATONIC = {False: [(0, ""), (2, "m"), (4, "m"), (5, ""), (7, ""), (9, "m")],
+            True: [(0, "m"), (3, ""), (5, "m"), (7, "m"), (7, ""), (8, ""), (10, "")]}
+TRIADS = {"": [0, 4, 7], "m": [0, 3, 7]}
+
+
+def bar_chords(mono: np.ndarray, sr: int, bpm: float, bars: int, key: int, minor: bool) -> list:
+    """Аккорд каждого такта петли: средняя хрома гармонической части такта против трезвучий тональности
+    (корень весомее терции и квинты)."""
+    harmonic = librosa.effects.harmonic(mono)
+    hop = 512
+    chroma = librosa.feature.chroma_cqt(y=harmonic, sr=sr, hop_length=hop)
+    frames_per_bar = 240.0 / bpm * sr / hop
+    names = []
+    for bar in range(bars):
+        a, b = int(bar * frames_per_bar), max(int((bar + 1) * frames_per_bar), int(bar * frames_per_bar) + 1)
+        profile = chroma[:, a:b].mean(axis=1)
+        best = None
+        for degree, quality in DIATONIC[minor]:
+            root = (key + degree) % 12
+            score = sum(profile[(root + step) % 12] * w for step, w in zip(TRIADS[quality], (1.4, 1.0, 1.0)))
+            if best is None or score > best[0]:
+                best = (score, KEY_NAMES[root] + quality)
+        names.append(best[1])
+    return names
+
+
 def beat_grid(mono: np.ndarray, sr: int, bpm: float | None) -> tuple:
     """Темп (если не задан — перебором ±5% около оценки librosa) и сильная доля: время первой «единицы»."""
     hop = 128
@@ -268,7 +296,10 @@ def build_tracks(dl: Path) -> dict:
             if "key" in spec:
                 root, mode = spec["key"].split()
                 confidence, key, minor = 1.0, KEY_NAMES.index(root), mode == "minor"
-            report[track_id] = {"bpm": bpm, "bars": bars, "offset": round(downbeat % bar - start / RATE, 3),
+            loop_mono = librosa.resample(loop.mean(axis=1), orig_sr=RATE, target_sr=22050)
+            chords = bar_chords(loop_mono, 22050, bpm, bars, key if "key" not in spec else KEY_NAMES.index(spec["key"].split()[0]),
+                                minor if "key" not in spec else spec["key"].endswith("minor"))
+            report[track_id] = {"chords": " ".join(chords), "bpm": bpm, "bars": bars, "offset": round(downbeat % bar - start / RATE, 3),
                                 "key": key, "minor": minor, "key_name": KEY_NAMES[key] + (" minor" if minor else " major"),
                                 "key_confidence": round(confidence, 3), "source_seconds": round(seconds, 3),
                                 "dropped_seconds": round(seconds - bars * bar, 3)}
@@ -293,7 +324,20 @@ def build_fonts(dl: Path) -> None:
         shutil.copy(dl / "fonts" / name, out / name)
 
 
+def chords_only() -> None:
+    """Аккорды уже собранных петель: темп, такты и тональность — из таблицы core/tracks.gd."""
+    import re
+    table = (ROOT / "core" / "tracks.gd").read_text()
+    for m in re.finditer(r'"id": "(\w+)".*?"bpm": ([\d.]+), "bars": (\d+).*?"key": (\d+), "scale": "(\w+)"', table, re.S):
+        track_id, bpm, bars, key, scale = m.group(1), float(m.group(2)), int(m.group(3)), int(m.group(4)), m.group(5)
+        mono, sr = librosa.load(ASSETS / "tracks" / f"{track_id}.ogg", sr=22050, mono=True)
+        print(f'{track_id}: "chords": "{" ".join(bar_chords(mono, sr, bpm, bars, key, scale.startswith("minor")))}"')
+
+
 def main() -> None:
+    if sys.argv[1:] == ["--chords"]:
+        chords_only()
+        return
     dl = Path(sys.argv[1]).resolve()
     if sys.argv[2:] == ["tracks"]:
         print(json.dumps(build_tracks(dl), ensure_ascii=False, indent=1))

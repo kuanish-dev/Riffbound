@@ -1,7 +1,9 @@
 class_name InputConfig
 ## Клавиши. Берутся по физическому положению, поэтому работают и в русской раскладке.
 ## Лады — по номеру пальца (Notes.FRETS): fret_1…fret_4 под A S D F; удары — по струне (Notes.STRINGS) под J K L;
-## бенд — пробел, его жмёт большой палец левой руки.
+## бенд — пробел, его жмёт большой палец левой руки. «bend_pull» — бенд любой силы (тяга струны пальцем на
+## сенсоре): клавиш у него нет, сила — strength действия (доля Tuning.BEND_MAX). «slide» — палец едет по ладам,
+## не отрываясь (сенсор держит его на время перехода): смена лада — слайд.
 
 const KEYS := {
 	"fret_1": [KEY_A],
@@ -12,6 +14,8 @@ const KEYS := {
 	"strike_mid": [KEY_K],
 	"strike_high": [KEY_L],
 	"bend": [KEY_SPACE],
+	"bend_pull": [],
+	"slide": [],
 	"position_down": [KEY_Q],
 	"position_up": [KEY_E],
 	"start": [KEY_ENTER],

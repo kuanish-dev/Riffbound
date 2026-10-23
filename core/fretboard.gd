@@ -8,7 +8,10 @@ extends Node
 ## - легато: пока последняя струна звенит недавно (LEGATO_WINDOW), прижатый выше лад — хаммер-он,
 ##   а снятый верхний палец при зажатом нижнем — пулл-офф: новая нота без удара (slurred),
 ##   звучит верхний из зажатых ладов;
-## - бенд: пока зажата клавиша бенда, последняя струна подтянута вверх (bent).
+## - бенд: пока зажата клавиша бенда, последняя струна подтянута на тон (bent, сила 1); тяга пальцем
+##   («bend_pull») подтягивает на любую высоту до Tuning.BEND_MAX — как на настоящей гитаре, и вибрато тоже.
+## - слайд: пока палец едет по ладам, не отрываясь (sliding, действие «slide»), смена лада — та же нота
+##   без удара, но высота плавно съезжает (Main метит событие glide); работает, пока нота звенит, без окна легато.
 ## Окно прощения: лад, зажатый чуть позже удара (до LENIENCY), считается ладом этого удара.
 
 ## Звук удара: сразу при ударе и ещё раз, если окно прощения поменяло ноту (corrected).
@@ -30,6 +33,8 @@ var held := {}            ## лад → true, пока зажат
 var active := ""          ## струна последней ноты: на ней легато и бенд
 var ringing := {}         ## струна → {note, frets, since}: что звенит и какими ладами держится
 var bending := false
+var bend_amount := 0.0    ## сила бенда: 1 — тон, до Tuning.BEND_MAX
+var sliding := false      ## палец едет по ладам — смена лада будет слайдом
 var _pending := {}        ## удар в окне прощения: time, note, string, fret_pressed
 
 
@@ -48,9 +53,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.is_action_pressed(InputConfig.strike_action(string)):
 			strike(string)
 	if event.is_action_pressed("bend"):
-		set_bend(true)
+		set_bend(1.0)
 	elif event.is_action_released("bend"):
-		set_bend(false)
+		set_bend(0.0)
+	elif event.is_action("bend_pull"):
+		set_bend(event.get_action_strength("bend_pull") * Tuning.BEND_MAX if event.is_pressed() else 0.0)
+	if event.is_action("slide"):
+		sliding = event.is_pressed()
 
 
 func _process(_delta: float) -> void:
@@ -62,7 +71,7 @@ func press_fret(fret: String) -> void:
 	if not _pending.is_empty():
 		_pending["fret_pressed"] = true
 		return
-	if _legato_open() and _rank(_top_fret()) > _rank(String(ringing[active]["note"])):
+	if (_legato_open() or _slide_open()) and _rank(_top_fret()) > _rank(String(ringing[active]["note"])):
 		_slur(_top_fret())
 
 
@@ -73,7 +82,7 @@ func release_fret(fret: String) -> void:
 		if not frets.has(fret):
 			continue
 		var top := _top_fret()
-		if string == active and _pending.is_empty() and _legato_open() and top != "" and _rank(top) < _rank(fret):
+		if string == active and _pending.is_empty() and (_legato_open() or _slide_open()) and top != "" and _rank(top) < _rank(fret):
 			_slur(top)
 		else:
 			_mute(string)
@@ -89,13 +98,16 @@ func strike(string: String) -> void:
 	_ring(string, note, time)
 	voiced.emit(note, string, false)
 	if bending:
-		bent.emit(string, 1.0, time)
+		bent.emit(string, bend_amount, time)
 
 
-func set_bend(on: bool) -> void:
-	bending = on
+## Сила бенда: 0 — отпущен, 1 — на тон, до Tuning.BEND_MAX.
+func set_bend(amount: float) -> void:
+	amount = clampf(amount, 0.0, Tuning.BEND_MAX)
+	bending = amount > 0.0
+	bend_amount = amount
 	if active != "":
-		bent.emit(active, 1.0 if on else 0.0, conductor.player_time())
+		bent.emit(active, amount, conductor.player_time())
 
 
 ## Закрывает окно прощения, когда оно истекло.
@@ -147,6 +159,11 @@ func _mute(string: String) -> void:
 func _legato_open() -> bool:
 	return active != "" and ringing.has(active) \
 		and conductor.player_time() - float(ringing[active]["since"]) <= LEGATO_WINDOW
+
+
+## Слайд: палец едет по ладам, а последняя струна ещё звенит — сколько угодно после удара.
+func _slide_open() -> bool:
+	return sliding and active != "" and ringing.has(active)
 
 
 ## Верхний из зажатых ладов ("" — ничего не зажато).

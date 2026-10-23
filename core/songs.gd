@@ -3,8 +3,9 @@ class_name Songs
 ## Клетка: «-» — пусто, «1»…«3» — удар по ладу, «x» — глушняк, «h2»/«p1» — легато к ладу без удара
 ## (хаммер-он / пулл-офф), «…b» — бенд, «=» — держать ноту этой струны ещё восьмую.
 ## «pos» такта — позиция руки (Q/E) для его нот. Песня играет поверх подложки «backing» — стиля
-## Backing.STYLES в своём строе или трека Tracks — в своём темпе «bpm» (нет — Timing.DEFAULT_BPM);
-## до первого такта — LEAD_IN тактов отсчёта.
+## Backing.STYLES или трека Tracks — в своём темпе «bpm» (нет — Timing.DEFAULT_BPM); стиль играет её аккорды
+## «chords» (Harmony: по такту, «Am E» — два аккорда в такте; нет — круг тональности строя песни).
+## До первого такта — LEAD_IN тактов отсчёта.
 ## Свои песни делаются в джеме из слоя лупера (from_layer), хранятся в MY_FILE; лучшие счета — в SCORES_FILE.
 
 const LEAD_IN := 2
@@ -21,6 +22,7 @@ const EVENT_NOTES := {
 const BUILT_IN := [
 	{"id": "warmup", "name": "Разминка", "level": 1, "backing": "shuffle", "key": 4, "scale": "minor_pentatonic",
 		"text": "лады по очереди, ноты по две доли",
+		"chords": ["Em", "Em", "C", "D", "C", "G", "Am", "Em"],
 		"bars": [
 			{"low": "1 = 2 = 3 = - -"},
 			{"mid": "1 = 2 = 3 = - -"},
@@ -33,6 +35,7 @@ const BUILT_IN := [
 		]},
 	{"id": "four", "name": "Четыре пальца", "level": 2, "backing": "rock", "key": 4, "scale": "minor_pentatonic",
 		"text": "4-й лад (F) — мизинец: четыре ноты на струне",
+		"chords": ["Em", "G", "C", "D", "C", "G", "Am", "Em"],
 		"bars": [
 			{"low": "1 = 2 = 3 = 4 ="},
 			{"mid": "1 = 2 = 3 = 4 ="},
@@ -45,6 +48,7 @@ const BUILT_IN := [
 		]},
 	{"id": "power", "name": "Пауэр-аккорды", "level": 2, "backing": "metal", "key": 4, "scale": "minor_pentatonic",
 		"text": "аккорд — один лад и удар по двум струнам сразу, x — глушняк",
+		"chords": ["E5", "G5 A5", "E5", "G5 A5", "E5", "A5 G5", "E5", "E5"],
 		"bars": [
 			{"mid": "1 = - - 1 = - -", "low": "1 = x x 1 = x x"},
 			{"mid": "2 = - - 3 = 2 =", "low": "2 = x x 3 = 2 ="},
@@ -57,6 +61,7 @@ const BUILT_IN := [
 		]},
 	{"id": "legato", "name": "Легато", "level": 3, "backing": "slow", "key": 4, "scale": "minor_pentatonic",
 		"text": "h — хаммер-он, p — пулл-офф: новая нота без удара",
+		"chords": ["Em", "G", "C", "Em", "Em", "Em", "G", "Em"],
 		"bars": [
 			{"low": "1 h2 h3 = p2 p1 = -"},
 			{"mid": "1 h2 h3 = p2 p1 = -"},
@@ -69,6 +74,7 @@ const BUILT_IN := [
 		]},
 	{"id": "solo", "name": "Соло", "level": 4, "backing": "rock", "key": 4, "scale": "minor_pentatonic",
 		"text": "бенды (пробел), легато и сдвиг руки по грифу (Q/E)",
+		"chords": ["Em", "G", "D", "Em", "C", "Em", "D", "Em"],
 		"bars": [
 			{"high": "- - 1 h2 3 = 2b ="},
 			{"high": "3 p2 p1 - - - - -", "mid": "- - - - 3 p2 p1 ="},
@@ -82,6 +88,7 @@ const BUILT_IN := [
 	{"id": "korobeiniki", "name": "Коробейники", "level": 2, "backing": "rock", "bpm": 116.0, "key": 9,
 		"scale": "natural_minor",
 		"text": "народная · тема из «Тетриса», ля минор",
+		"chords": ["Am E", "Am", "E", "Am", "Dm", "C", "E", "Am"],
 		"bars": [
 			{"mid": "2 = - - - - - -", "low": "- - 2 3 4 = 3 2"},
 			{"low": "1 = 1 3 - - 4 3", "mid": "- - - - 2 = - -"},
@@ -94,6 +101,7 @@ const BUILT_IN := [
 		]},
 	{"id": "mountain_king", "name": "В пещере горного короля", "level": 2, "backing": "metal", "key": 4,
 		"scale": "natural_minor", "text": "Григ · упрощённо, ми минор",
+		"chords": ["Em", "B7", "Em", "Em", "G", "Em"],
 		"bars": [
 			{"low": "1 2 3 4 - 3 - -", "mid": "- - - - 2 - 2 ="},
 			{"low": "4 2 4 = = = = ="},
@@ -104,6 +112,7 @@ const BUILT_IN := [
 		]},
 	{"id": "ode_to_joy", "name": "Ода к радости", "level": 1, "backing": "slow", "bpm": 92.0, "key": 9, "scale": "major",
 		"text": "Бетховен · ля мажор, ноты по долям",
+		"chords": ["A", "E", "A", "A E", "A", "E", "A", "E A"],
 		"bars": [
 			{"low": "3 = 3 = 4 = - -", "mid": "- - - - - - 2 ="},
 			{"mid": "2 = - - - - - -", "low": "- - 4 = 3 = 2 ="},
@@ -117,6 +126,7 @@ const BUILT_IN := [
 	{"id": "toccata", "name": "Токката ре минор", "level": 4, "backing": "metal", "bpm": 92.0, "key": 2,
 		"scale": "harmonic_minor",
 		"text": "Бах · пулл-оффы, хаммер-оны, сдвиг позиции",
+		"chords": ["A7", "A7 Dm", "A7", "A7 Dm", "Dm", "Dm"],
 		"bars": [
 			{"pos": 1, "high": "3 p2 h3 = = = - -"},
 			{"pos": 1, "high": "2 1 - - - - - -", "mid": "- - 3 2 1 2 = ="},
@@ -192,6 +202,20 @@ static func notes_of(song: Dictionary) -> Array[Dictionary]:
 	return notes
 
 
+## Аккорды подложки по тактам от начала часов (с отсчётом): отсчёт — на первом аккорде песни, хвост — на последнем.
+static func chords_of(song: Dictionary) -> Array[String]:
+	var own: Array = song.get("chords", [])
+	if own.is_empty():
+		var tuning := Tuning.new()
+		tuning.set_key(int(song["key"]), String(song["scale"]))
+		own = Harmony.progression(tuning.key, tuning.is_minor())
+	var out: Array[String] = []
+	@warning_ignore("integer_division")
+	for bar in end_slot(song) / Timing.SLOTS_PER_BAR:
+		out.append(String(own[clampi(bar - LEAD_IN, 0, own.size() - 1)]))
+	return out
+
+
 ## Слот, где песня кончается: такт после последней ноты.
 static func end_slot(song: Dictionary) -> int:
 	var end := LEAD_IN * Timing.SLOTS_PER_BAR
@@ -201,8 +225,8 @@ static func end_slot(song: Dictionary) -> int:
 
 
 ## Своя песня из слоя лупера: события {t, kind, string, fret, pos, amount} → ноты на сетке восьмых
-## текущего темпа (Timing.bpm); подложка — та, под которую играли.
-static func from_layer(events: Array, tuning: Tuning, backing: String) -> Dictionary:
+## текущего темпа (Timing.bpm); подложка и аккорды круга — те, под которые играли.
+static func from_layer(events: Array, tuning: Tuning, backing: String, chords: Array[String]) -> Dictionary:
 	var loop_slots := Looper.BARS * Timing.SLOTS_PER_BAR
 	var start := LEAD_IN * Timing.SLOTS_PER_BAR
 	var notes: Array[Dictionary] = []
@@ -240,7 +264,7 @@ static func from_layer(events: Array, tuning: Tuning, backing: String) -> Dictio
 	var number := _next_number()
 	return {"id": "my_%d" % number, "name": "Моя песня %d" % number, "number": number, "level": 0, "backing": backing,
 		"bpm": Timing.bpm, "key": tuning.key, "scale": Tuning.SCALES[tuning.scale]["id"], "text": "%d нот · %s" % [unique.size(), tuning.title()],
-		"notes": unique}
+		"chords": chords.slice(0, Looper.BARS), "notes": unique}
 
 
 static func add_my(song: Dictionary, save := true) -> void:

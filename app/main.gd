@@ -75,12 +75,17 @@ var _tone := ""                         ## id гитары, чей звук се
 var _lick_from := -1.0                  ## когда началась фраза «послушать» (с, часы системы)
 var _lick_next := 0
 var _layer_voices: Array[GuitarVoices] = []
-var _backings := {}                     ## «стиль:тональность:лад:темп» → AudioStreamWAV
+var _backings := {}                     ## «стиль:аккорды:темп» → AudioStreamWAV
 var _jam_tuning := Tuning.song()        ## строй джема живёт между заходами; в песне — строй песни
 var _jam_bpm := Timing.DEFAULT_BPM      ## темп джема под стиль барабанов (меняется тап-темпом)
 var _taps: Array[float] = []            ## тап-темп: время ударов (с, по часам системы)
 var _tap_from := 0.0                    ## где звучал файл музыки на первом ударе
 var _asked_permissions := false
+## Подложки песен собираются в фоне, пока игрок в меню (на телефоне песня собирается секунду-другую, а касание
+## песни запускает её сразу): {key, task, out — [AudioStreamWAV]}. У фонового потока свой кэш сэмплов.
+var _prerender := {}
+var _prerender_pcm := {}
+var _prerender_next := 0               ## какую песню списка проверить следующей
 
 
 func _ready() -> void:
@@ -142,6 +147,8 @@ func _ready() -> void:
 	touch_pad.active = Game.touch
 	add_child(touch_pad)
 	touch_pad.row_selected.connect(ui.play.bind("move"))
+	touch_pad.slid.connect(hud.on_slid)
+	Game.pad = touch_pad
 	for listener: Object in [self, stage, hud, stage_fx, fx]:
 		fretboard.voiced.connect(Callable(listener, "on_voiced"))
 	fretboard.played.connect(_on_played)
@@ -177,7 +184,7 @@ func start_song() -> void:
 	song_tuning.scale = Tuning.scale_index(String(song["scale"]))
 	_use_tuning(song_tuning)
 	var choice := music(String(song["backing"]))
-	call("_load_" + String(choice["kind"]), choice, Songs.bpm_of(song))
+	call("_load_" + String(choice["kind"]), choice, Songs.bpm_of(song), Songs.chords_of(song))
 	# ноты песни записаны в её темпе — он главнее темпа трека
 	Timing.bpm = Songs.bpm_of(song)
 	performance.start(song)
@@ -215,6 +222,7 @@ func _begin(state: String) -> void:
 
 
 func _to_menu() -> void:
+	_prerender_next = 0
 	_lick_from = -1.0
 	Game.more = false
 	_leave_music()
@@ -238,6 +246,7 @@ func _process(_delta: float) -> void:
 	for item: Dictionary in due:
 		_layer_voices[int(item["layer"])].play(item["event"])
 	_tap_tick()
+	_prerender_tick()
 	_sync_tone()
 	_lick_tick()
 	if Game.state != "song":
@@ -287,6 +296,7 @@ func on_fact(kind: String, _data: Dictionary) -> void:
 ## проигрывания, иначе Godot при выходе ругается на утёкшие AudioStreamPlayback.
 func quit(code := 0) -> void:
 	fretboard.process_mode = Node.PROCESS_MODE_DISABLED
+	_finish_prerender()
 	_leave_music()
 	conductor.stop()
 	_sfx.stop()
@@ -321,7 +331,8 @@ func _on_played(note: String, string: String, time: float) -> void:
 
 
 func _on_slurred(note: String, string: String, time: float) -> void:
-	_perform({"kind": "slur", "string": string, "fret": note, "pos": tuning.position, "midis": tuning.midis(note, string)})
+	_perform({"kind": "slur", "string": string, "fret": note, "pos": tuning.position, "midis": tuning.midis(note, string),
+		"glide": fretboard.sliding})
 	if Game.state == "song":
 		performance.play(string, _midi(note, string), time, true)
 	hud.played_note(note, string, time, true)
@@ -375,20 +386,27 @@ static func _music_index(choices: Array[Dictionary], id: String) -> int:
 	return -1
 
 
-## Стиль: луп Looper.BARS тактов в темпе bpm и тональности строя.
-func _load_style(choice: Dictionary, bpm: float) -> void:
+## Стиль: круг из аккордов chords (такт на аккорд; у песни — вся песня, в джеме — круг тональности строя)
+## в темпе bpm.
+func _load_style(choice: Dictionary, bpm: float, chords: Array[String]) -> void:
 	Timing.bpm = bpm
-	conductor.set_music(_backing(String(choice["id"])), Looper.BARS * Timing.bar_len())
+	var id := String(choice["id"])
+	Game.chords = chords if Backing.has_harmony(id) else ([] as Array[String])
+	conductor.set_music(_backing(id, chords), chords.size() * Timing.bar_len())
 
 
-## Трек: свой темп. Свой трек без темпа крутится целиком, пока его не протапают (T).
-func _load_track(choice: Dictionary, bpm: float) -> void:
+## Трек: свой темп и свои аккорды (у своего трека их нет). Свой трек без темпа крутится целиком,
+## пока его не протапают (T).
+func _load_track(choice: Dictionary, bpm: float, chords: Array[String]) -> void:
 	var stream := Tracks.load_stream(choice)
 	if stream == null:
 		Game.music["problem"] = "файл не читается — играем без подложки"
 		hud.toast("«%s»: %s" % [choice["name"], Game.music["problem"]])
-		_load_style(music("none"), bpm)
+		_load_style(music("none"), bpm, chords)
 		return
+	var own: Array[String] = []
+	own.assign(String(choice.get("chords", "")).split(" ", false))
+	Game.chords = own
 	stream.set("loop", true)
 	Timing.bpm = float(choice["bpm"]) if float(choice["bpm"]) > 0.0 else bpm
 	var bars := int(choice["bars"])
@@ -408,11 +426,51 @@ func _start_clock() -> void:
 	conductor.start()
 
 
-func _backing(id: String) -> AudioStreamWAV:
-	var key := "%s:%d:%s:%.2f" % [id, tuning.key, tuning.is_minor(), Timing.bpm]
+func _backing(id: String, chords: Array[String]) -> AudioStreamWAV:
+	var key := _backing_key(id, chords, Timing.bpm)
+	if _prerender.get("key", "") == key:
+		_finish_prerender()
 	if not _backings.has(key):
-		_backings[key] = Backing.render(id, tuning.key, tuning.is_minor())
+		_backings[key] = Backing.render(id, chords, Timing.bpm)
 	return _backings[key]
+
+
+static func _backing_key(id: String, chords: Array[String], bpm: float) -> String:
+	return "%s:%s:%.2f" % [id, "|".join(chords), bpm]
+
+
+## В меню — следующая песня со стилем вместо трека, чья подложка ещё не собрана, уходит в фоновый поток.
+## По одной за раз; в песне и джеме новые не начинаются.
+func _prerender_tick() -> void:
+	if not _prerender.is_empty():
+		if WorkerThreadPool.is_task_completed(int(_prerender["task"])):
+			_finish_prerender()
+		return
+	var songs := Songs.all()
+	while Game.state == "menu" and _prerender_next < songs.size():
+		var song: Dictionary = songs[_prerender_next]
+		_prerender_next += 1
+		var id := String(song["backing"])
+		var bpm := Songs.bpm_of(song)
+		var chords := Songs.chords_of(song)
+		var key := _backing_key(id, chords, bpm)
+		if Backing.style_of(id).is_empty() or _backings.has(key):
+			continue
+		var out: Array[AudioStreamWAV] = []
+		var pcm := _prerender_pcm
+		var task := WorkerThreadPool.add_task(func() -> void: out.append(Backing.render(id, chords, bpm, pcm)))
+		_prerender = {"key": key, "task": task, "out": out}
+		return
+
+
+## Дождаться фоновой сборки и положить её в кэш подложек.
+func _finish_prerender() -> void:
+	if _prerender.is_empty():
+		return
+	WorkerThreadPool.wait_for_task_completion(int(_prerender["task"]))
+	for wav: AudioStreamWAV in _prerender["out"]:
+		_backings[_prerender["key"]] = wav
+	_prerender = {}
 
 
 # --- меню и общие команды ---------------------------------------------------
@@ -538,7 +596,7 @@ func _jam_save_song() -> void:
 	if looper.layers.is_empty():
 		_say("deny", "Сначала запиши луп (R)")
 		return
-	var song := Songs.from_layer(looper.layers.back(), tuning, Game.jam_backing)
+	var song := Songs.from_layer(looper.layers.back(), tuning, Game.jam_backing, Game.chords)
 	if (song["notes"] as Array).is_empty():
 		_say("deny", "В слое нет нот")
 		return
@@ -604,7 +662,7 @@ func _jam_backing() -> void:
 	hud.toast("Подложка: %s · %s%s" % [Game.music["name"], tuning.title(), hint])
 
 
-## Строй сменили сами. Свой трек запоминает тональность; стиль барабанов собирается под неё заново.
+## Строй сменили сами. Свой трек запоминает тональность; стиль собирается заново по аккордам новой тональности.
 func _jam_retune(what: String) -> void:
 	var track := Tracks.find(Game.jam_backing)
 	if track.get("user", false):
@@ -632,7 +690,7 @@ func _load_jam_music(retune: bool) -> void:
 	if retune and int(choice.get("key", -1)) >= 0:
 		tuning.set_key(int(choice["key"]), String(choice["scale"]))
 	var before := Timing.bpm
-	call("_load_" + String(choice["kind"]), choice, _jam_bpm)
+	call("_load_" + String(choice["kind"]), choice, _jam_bpm, Harmony.progression(tuning.key, tuning.is_minor()))
 	Game.music["bpm"] = Timing.bpm if float(choice.get("bpm", 1.0)) > 0.0 else 0.0
 	if not is_equal_approx(before, Timing.bpm):
 		looper.reset()

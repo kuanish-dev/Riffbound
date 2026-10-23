@@ -56,7 +56,7 @@ func test_backing_styles() -> void:
 	Timing.bpm = 120.0
 	for style: Dictionary in Backing.STYLES:
 		var started := Time.get_ticks_msec()
-		var wav := Backing.render(String(style["id"]), 4, true)
+		var wav := Backing.render(String(style["id"]), Harmony.progression(4, true), Timing.bpm)
 		var spent := Time.get_ticks_msec() - started
 		eq(wav.loop_end, roundi(Looper.BARS * Timing.bar_len() * Backing.RATE), "%s: луп на %d такта" % [style["id"], Looper.BARS])
 		eq(wav.data.size() / 2, wav.loop_end + Backing.LOOP_PAD, "%s: за концом петли — её начало" % style["id"])

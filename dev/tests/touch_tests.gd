@@ -14,7 +14,11 @@ func before_each() -> void:
 	pad = TouchPad.new()
 	pad.active = true
 	sent.clear()
-	pad.sink = func(action: String, pressed: bool) -> void: sent.append("%s %s" % [action, "↓" if pressed else "↑"])
+	pad.sink = func(action: String, pressed: bool, strength: float) -> void:
+		if action == "bend_pull":
+			sent.append("bend %.1f" % (strength * Tuning.BEND_MAX))
+		else:
+			sent.append("%s %s" % [action, "↓" if pressed else "↑"])
 	Game.state = "song"
 	Game.menu_index = 0
 
@@ -33,7 +37,7 @@ func test_fret_is_held_while_touched() -> void:
 func test_slide_to_next_fret_is_legato() -> void:
 	_touch(0, _center("fret_1"), true)
 	_drag(0, _center("fret_3"))
-	eq(sent, ["fret_1 ↓", "fret_3 ↓", "fret_1 ↑"], "скольжение: сначала новый лад, потом старый — легато")
+	eq(sent, ["fret_1 ↓", "slide ↓", "fret_3 ↓", "fret_1 ↑", "slide ↑"], "палец поехал по ладам — слайд: новый лад, потом старый")
 
 
 func test_two_fingers_on_one_fret() -> void:
@@ -172,15 +176,32 @@ func test_finger_scroll_reaches_every_song() -> void:
 
 func test_bend_by_pulling_string() -> void:
 	var at := _center("strike_mid")
+	var tone := TouchPad.BEND_DEAD + TouchPad.BEND_RANGE           ## столько вбок — бенд на тон
 	_touch(0, at, true)
-	_drag(0, at + Vector2(-20, 4))
-	_drag(0, at + Vector2(-60, 6))
-	_drag(0, at + Vector2(-70, 8))
-	_drag(0, at + Vector2(-10, 4))
-	_drag(0, at + Vector2(-60, 0))
-	_touch(0, at + Vector2(-60, 0), false)
-	eq(sent, ["strike_mid ↓", "strike_mid ↑", "bend ↓", "bend ↑", "bend ↓", "bend ↑"],
-		"ударил, потянул вбок — бенд; вернул — отпустил; снова потянул и поднял палец — отпустил")
+	_drag(0, at + Vector2(-3, 1))
+	_drag(0, at + Vector2(-(TouchPad.BEND_DEAD + TouchPad.BEND_RANGE * 0.5), 5))
+	_drag(0, at + Vector2(-tone, 6))
+	_drag(0, at + Vector2(-tone * 3.0, 8))
+	_drag(0, at + Vector2(-5, 4))
+	_drag(0, at + Vector2(-tone, 0))
+	_touch(0, at + Vector2(-tone, 0), false)
+	eq(sent, ["strike_mid ↓", "strike_mid ↑", "bend 0.5", "bend 1.0", "bend %.1f" % Tuning.BEND_MAX, "bend 0.0",
+		"bend 1.0", "bend 0.0"],
+		"тянешь — полтона, тон, до упора; вернул — отпустил; снова потянул и поднял палец — отпустил")
+
+
+func test_wiggle_on_string_is_vibrato() -> void:
+	var at := _center("strike_high")
+	_touch(0, at, true)
+	# палец ходит туда-сюда через точку удара, как при вибрато
+	for x: float in [4.0, 10.0, 16.0, 10.0, 4.0, -4.0, -10.0, -16.0, -10.0, -4.0, 4.0, 10.0, 16.0]:
+		_drag(0, at + Vector2(x, 1))
+	_touch(0, at + Vector2(16, 1), false)
+	var bends := sent.filter(func(s: String) -> bool: return s.begins_with("bend"))
+	check(bends.size() >= 4, "покачивание на струне — нота дрожит (%s)" % str(bends))
+	check(bends.all(func(s: String) -> bool: return float(s.split(" ")[1]) <= 0.1), "вибрато мелкое, не бенд на тон")
+	eq(sent.back(), "bend 0.0", "отпустил — струна отпущена")
+	eq(sent.count("strike_high ↓"), 1, "покачивание не бьёт по струне заново")
 
 
 func test_strum_is_not_bend() -> void:
@@ -189,8 +210,26 @@ func test_strum_is_not_bend() -> void:
 	_drag(0, _center("strike_mid") + Vector2(-50, 0))
 	_drag(0, _center("strike_low") + Vector2(-60, 0))
 	_touch(0, _center("strike_low") + Vector2(-60, 0), false)
-	check(not sent.has("bend ↓"), "бой наискосок через струны — не бенд: %s" % str(sent))
+	check(not sent.any(func(s: String) -> bool: return s.begins_with("bend")), "бой наискосок через струны — не бенд: %s" % str(sent))
 	eq(sent.count("strike_low ↓"), 1, "но удары по всем струнам есть")
+
+
+## Для показа: где пальцы, кто тянет струну и откуда, куда проехал слайд.
+func test_pad_shows_fingers_pull_and_slide() -> void:
+	var slides: Array = []
+	pad.slid.connect(func(from: String, to: String) -> void: slides.append([from, to]))
+	_touch(0, _center("fret_1"), true)
+	_drag(0, _center("fret_3"))
+	eq(slides, [["1", "3"]], "слайд с лада на лад")
+	var from := _center("strike_mid")
+	_touch(1, from, true)
+	_drag(1, from + Vector2(40, 0))
+	var pull := pad.pull_of("mid")
+	eq([pull["from"], pull["pos"], pull["on"]], [from, from + Vector2(40, 0), true], "тянет среднюю от точки удара")
+	eq(pad.pull_of("high"), {}, "верхнюю никто не тянет")
+	eq(pad.points.size(), 2, "два пальца на экране")
+	_touch(1, from + Vector2(40, 0), false)
+	eq([pad.pull_of("mid"), pad.points.size()], [{}, 1], "палец поднят — не тянет и не виден")
 
 
 func _center(action: String) -> Vector2:
