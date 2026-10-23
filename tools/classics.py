@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
+import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from band_score import LEAD_IN, PRE_ROLL, bar_count
 from classics_data import SONGS
 
 NOTE_NAMES = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
@@ -19,7 +21,6 @@ BASE_MIDI = 48
 NOTES_PER_STRING = 3
 FRETS = 4
 MIDI_RANGE = (40, 88)
-LEAD_IN = 2
 LEGATO_STEP = 2
 SLOTS = 8
 
@@ -62,6 +63,8 @@ def notes_of(song: dict) -> list:
 
 
 def tab_of(song: dict) -> list:
+    if "tab" in song:
+        return [dict(bar) for bar in song["tab"]]
     key = KEY_NAMES.index(song["key"])
     steps = SCALES[song["scale"]]
     notes = notes_of(song)
@@ -136,21 +139,40 @@ def gd_song(song: dict) -> str:
             ['"%s": "%s"' % (s, bar[s]) for s in STRINGS if s in bar]
         bars.append("\t\t\t{%s}," % ", ".join(parts))
     chords = ", ".join('"%s"' % c for c in song["chords"])
-    return ('\t{"id": "%s", "name": "%s", "level": %d, "backing": "%s", "bpm": %.1f, "key": %d, "scale": "%s",\n'
-        '\t\t"text": "%s",\n\t\t"chords": [%s],\n\t\t"bars": [\n%s\n\t\t]},') % (
-        song["id"], song["name"], song["level"], song["id"], song["bpm"], KEY_NAMES.index(song["key"]),
-        song["scale"], song["text"], chords, "\n".join(bars))
+    return ('\t{"id": "%s", "name": "%s", "backing": "%s", "bpm": %.1f, "key": %d, "scale": "%s",\n'
+        '\t\t"lesson": %s, "keeps": %s,\n\t\t"text": "%s",\n\t\t"chords": [%s],\n\t\t"bars": [\n%s\n\t\t]},') % (
+        song["id"], song["name"], song["id"], song["bpm"], KEY_NAMES.index(song["key"]), song["scale"],
+        gd_bool(song.get("lesson", False)), json.dumps(song.get("keeps", {})), song["text"], chords, "\n".join(bars))
+
+
+def gd_track(song: dict) -> str:
+    chords = [song["chords"][0]] * LEAD_IN + song["chords"] + [song["chords"][-1]]
+    return ('\t{"id": "%s", "name": "%s", "author": "%s", "file": "res://assets/tracks/%s.ogg",\n'
+        '\t\t"bpm": %.1f, "bars": %d, "offset": %.2f, "key": %d, "scale": "%s", "jam": %s,\n\t\t"chords": "%s"},') % (
+        song["id"], song["name"], song["author"], song["id"], song["bpm"], LEAD_IN + bar_count(song) + 1, PRE_ROLL,
+        KEY_NAMES.index(song["key"]), song["scale"], gd_bool(not song.get("lesson", False)), "|".join(chords))
+
+
+def gd_bool(value: bool) -> str:
+    return "true" if value else "false"
+
+
+def write_book() -> None:
+    root = Path(__file__).resolve().parent.parent / "core"
+    (root / "song_book.gd").write_text("class_name SongBook\nextends RefCounted\n\nconst SONGS := [\n"
+        + "\n".join(gd_song(song) for song in SONGS) + "\n]\n")
+    (root / "song_tracks.gd").write_text("class_name SongTracks\nextends RefCounted\n\nconst TRACKS := [\n"
+        + "\n".join(gd_track(song) for song in SONGS) + "\n]\n")
 
 
 def main() -> None:
-    if sys.argv[1:2] == ["tabs"]:
-        for song in SONGS:
-            print(gd_song(song))
+    if sys.argv[1:2] == ["book"]:
+        write_book()
     elif sys.argv[1:2] == ["render"]:
         import band
         band.render_all(SONGS, sys.argv[2])
     else:
-        print(__doc__)
+        print("python -I tools/classics.py book | render <папка_сэмплов>")
 
 
 if __name__ == "__main__":

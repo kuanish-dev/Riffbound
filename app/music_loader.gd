@@ -25,6 +25,10 @@ static func choices() -> Array[Dictionary]:
 	return out
 
 
+static func jam_choices() -> Array[Dictionary]:
+	return choices().filter(func(choice: Dictionary) -> bool: return choice.get("jam", true))
+
+
 static func find(id: String) -> Dictionary:
 	var all := choices()
 	return all[maxi(0, index_of(all, id))]

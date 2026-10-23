@@ -21,6 +21,8 @@ const KEYS := {
 	"delete_song": [KEY_MINUS],
 	"menu_up": [KEY_UP],
 	"menu_down": [KEY_DOWN],
+	"easier": [KEY_LEFT],
+	"harder": [KEY_RIGHT],
 	"export_midi": [KEY_M],
 	"key_down": [KEY_Z],
 	"key_up": [KEY_X],

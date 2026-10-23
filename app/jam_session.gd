@@ -100,7 +100,7 @@ func next_scale() -> void:
 
 
 func next_backing() -> void:
-	var all := MusicLoader.choices()
+	var all := MusicLoader.jam_choices()
 	var next := (maxi(0, MusicLoader.index_of(all, Game.jam_backing)) + 1) % all.size()
 	Game.jam_backing = String(all[next]["id"])
 	_restart_music(true)

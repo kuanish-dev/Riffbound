@@ -5,7 +5,7 @@ const COMMANDS := {
 	"*": {"position_down": "common.position_down", "position_up": "common.position_up",
 		"offset_down": "common.offset_down", "offset_up": "common.offset_up", "metronome": "common.toggle_metronome"},
 	"menu": {"menu_up": "common.menu_up", "menu_down": "common.menu_down", "start": "start_song", "jam": "start_jam",
-		"shop": "open_shop", "quit": "quit"},
+		"shop": "open_shop", "quit": "quit", "easier": "common.easier", "harder": "common.harder"},
 	"shop": {"menu_up": "shop.up", "menu_down": "shop.down", "start": "shop.take", "listen": "listen", "quit": "_to_menu"},
 	"song": {"quit": "_to_menu"},
 	"results": {"start": "start_song", "quit": "_to_menu"},
@@ -55,6 +55,7 @@ func _ready() -> void:
 		return
 	Songs.load_saved()
 	Shop.load_saved()
+	Difficulty.load_saved()
 	SceneBuilder.build(self)
 	_connect_listeners()
 	_apply_dev_args()
@@ -67,10 +68,13 @@ func start_song() -> void:
 	Game.tuning = _tuning_of(song)
 	music.load_music(MusicLoader.find(String(song["backing"])), Songs.bpm_of(song), Songs.chords_of(song))
 	Timing.bpm = Songs.bpm_of(song)
-	performance.start(song)
+	performance.start(song, Difficulty.current())
+	Timing.leniency = float(performance.rules["window"])
 	Game.tuning.position = int(performance.next_note().get("pos", 0))
 	Game.needs = _needs_of(performance.notes, Game.tuning.position)
+	Game.needs["positions"] = Game.needs["positions"] and not performance.rules["auto_hand"]
 	_begin("song")
+	hud.toast(String(song["text"]), Songs.LEAD_IN * Timing.bar_len())
 
 
 func start_jam() -> void:
@@ -149,6 +153,8 @@ func _apply_dev_args() -> void:
 	Game.jam_backing = DevArgs.get_str("backing", Game.jam_backing)
 	Game.metronome = DevArgs.has("metronome")
 	Game.more = DevArgs.has("more")
+	if DevArgs.has("difficulty"):
+		Difficulty.forced = Difficulty.index_of(DevArgs.get_str("difficulty"))
 
 
 func _start_dev_mode() -> void:
@@ -213,18 +219,28 @@ func _tick_looper() -> void:
 
 
 func _tick_song() -> void:
+	if performance.rules["auto_hand"]:
+		_move_hand_to_next_note()
 	performance.update(conductor.player_time())
 	style.update(conductor.player_time())
 	if performance.finished:
 		_finish_song()
 
 
+func _move_hand_to_next_note() -> void:
+	var next := performance.next_note()
+	if not next.is_empty() and int(next["pos"]) != Game.tuning.position:
+		Game.tuning.position = int(next["pos"])
+		feedback.play("shift")
+
+
 func _finish_song() -> void:
 	var result := performance.result()
 	result.merge(style.result())
 	Game.last_result = result.duplicate()
-	Game.last_result["record"] = Songs.record(String(performance.song["id"]), result)
-	Game.last_result["coins"] = Shop.reward(result)
+	var key := Difficulty.record_key(String(performance.song["id"]), Difficulty.current_index())
+	Game.last_result["record"] = Songs.record(key, result)
+	Game.last_result["coins"] = Shop.reward(result, float(Difficulty.current()["coins"]))
 	feedback.play("finish")
 	if Game.last_result["record"]:
 		feedback.play("record_new")

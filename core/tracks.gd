@@ -23,24 +23,6 @@ const BUILT_IN := [
 	{"id": "funked_up", "name": "Funked Up", "author": "Joth", "file": "res://assets/tracks/funked_up.ogg",
 		"bpm": 86.99, "bars": 24, "offset": 0.01, "key": 9, "scale": "minor_pentatonic",
 		"chords": "Em|Am|Em|Am|Em|Am|Am|Am|Em|Am|Am|Am|Em|Am|Am|Am|Am|Am|Am|Am|Am|Am|Em|Am"},
-	{"id": "swan_lake", "name": "Лебединое озеро", "author": "Чайковский", "file": "res://assets/tracks/swan_lake.ogg",
-		"bpm": 84.0, "bars": 11, "offset": 0.01, "key": 11, "scale": "natural_minor",
-		"chords": "Bm|Bm|Bm|D|Bm G|Bm|Bm|D|Bm G|Bm|Bm"},
-	{"id": "fate", "name": "Симфония №5", "author": "Бетховен", "file": "res://assets/tracks/fate.ogg",
-		"bpm": 140.0, "bars": 12, "offset": 0.01, "key": 0, "scale": "natural_minor",
-		"chords": "Cm|Cm|Cm|G|Cm|Ab|Fm|G|Cm|G|Cm|Cm"},
-	{"id": "canon", "name": "Канон ре мажор", "author": "Пахельбель", "file": "res://assets/tracks/canon.ogg",
-		"bpm": 100.0, "bars": 12, "offset": 0.01, "key": 2, "scale": "major",
-		"chords": "D A|D A|D A|Bm F#m|G D|G A|D A|Bm F#m|G D|G A|D|D"},
-	{"id": "fur_elise", "name": "К Элизе", "author": "Бетховен", "file": "res://assets/tracks/fur_elise.ogg",
-		"bpm": 140.0, "bars": 20, "offset": 0.01, "key": 9, "scale": "chromatic",
-		"chords": "Am|Am|Am|E Am|Am|E|Am|E Am|Am|E|Am|E Am|Am|E|Am|E Am|Am|E|Am|Am"},
-	{"id": "turkish_march", "name": "Турецкий марш", "author": "Моцарт", "file": "res://assets/tracks/turkish_march.ogg",
-		"bpm": 150.0, "bars": 22, "offset": 0.01, "key": 9, "scale": "chromatic",
-		"chords": "Am|Am|Am|Am|Am|E|Am|C|G|Em B7|Em|E|Am|Am|E|Am|C|G|Em B7|Em|Am|Am"},
-	{"id": "bumblebee", "name": "Полёт шмеля", "author": "Римский-Корсаков", "file": "res://assets/tracks/bumblebee.ogg",
-		"bpm": 150.0, "bars": 17, "offset": 0.01, "key": 9, "scale": "chromatic",
-		"chords": "E|E|E|E|E|E|Am|Am|Am|Am|E|E|E|E|E|Am|Am"},
 ]
 const MODE_SCALES := {"minor": "minor_pentatonic", "major": "major_pentatonic"}
 const MINOR_WORDS := ["m", "min", "minor", "moll"]
@@ -50,7 +32,7 @@ static var _memory := {}
 
 
 static func all() -> Array:
-	return BUILT_IN + _user
+	return BUILT_IN + SongTracks.TRACKS + _user
 
 
 static func find(id: String) -> Dictionary:

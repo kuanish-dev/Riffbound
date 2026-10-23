@@ -23,11 +23,12 @@ func test_built_in_songs_are_playable() -> void:
 	for song: Dictionary in SongBook.SONGS:
 		var notes := Songs.notes_of(song)
 		check(not notes.is_empty(), "%s: есть ноты" % song["id"])
+		var slot_len := 60.0 / Songs.bpm_of(song) / Timing.SLOTS_PER_BEAT
 		var last := {}
 		for note in notes:
 			var string := String(note["string"])
 			if note["legato"]:
-				var ok := last.has(string) and (int(note["slot"]) - int(last[string]["slot"])) * Timing.slot_len() <= Fretboard.LEGATO_WINDOW
+				var ok := last.has(string) and (int(note["slot"]) - int(last[string]["slot"])) * slot_len <= Fretboard.LEGATO_WINDOW
 				check(ok, "%s: легато в слоте %d на струне %s успевает" % [song["id"], note["slot"], string])
 			last[string] = note
 			var tuning := Tuning.new()
@@ -113,7 +114,7 @@ func test_song_from_loop_layer() -> void:
 
 
 func _song(bars: Array) -> Dictionary:
-	return {"id": "test", "name": "Тест", "level": 1, "backing": "rock", "key": 4, "scale": "minor_pentatonic", "text": "",
+	return {"id": "test", "name": "Тест", "backing": "rock", "key": 4, "scale": "minor_pentatonic", "text": "",
 		"bars": bars}
 
 

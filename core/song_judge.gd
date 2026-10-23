@@ -13,6 +13,7 @@ const TECH_NAMES := {"h": "Хаммер-он!", "p": "Пулл-офф!", "bend":
 const BEND_COUNTS := 0.5
 
 var song := {}
+var rules := {}
 var notes: Array[Dictionary] = []
 var score := 0
 var streak := 0
@@ -29,9 +30,10 @@ var _bent := {}
 var _last_hit := {}
 
 
-func start(song_def: Dictionary) -> void:
+func start(song_def: Dictionary, level: Dictionary = Difficulty.LEVELS.back()) -> void:
 	song = song_def
-	notes = Songs.notes_of(song)
+	rules = Difficulty.rules_for(song, level)
+	notes = Difficulty.simplify(Songs.notes_of(song), rules)
 	var tuning := Tuning.new()
 	tuning.set_key(int(song["key"]), String(song["scale"]))
 	for note in notes:
@@ -96,7 +98,7 @@ func play(string: String, midi: int, time: float, legato: bool) -> void:
 	if finished:
 		return
 	var last: Dictionary = _last_hit.get(string, {})
-	if not last.is_empty() and int(last["midi"]) == midi and time - float(last["time"]) <= Timing.widest_window() * 2.0:
+	if not last.is_empty() and int(last["midi"]) == midi and time - float(last["time"]) <= Timing.REPEAT_GUARD:
 		return
 	_release(string, time)
 	var best := _closest_waiting(string, midi, time)

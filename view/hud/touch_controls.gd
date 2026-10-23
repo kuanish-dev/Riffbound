@@ -58,10 +58,13 @@ func _draw_plain(button: Dictionary, _cue: Dictionary, _pulse: float) -> void:
 
 
 func _draw_shift(button: Dictionary, _cue: Dictionary, _pulse: float) -> void:
-	var next := Game.performance.next_note() if Game.state == "song" else {}
-	var wanted := not next.is_empty() and signf(int(next["pos"]) - Game.tuning.position) == float(button["dir"])
-	var glow := 0.5 * (0.6 + 0.4 * sin(t * Cue.BLINK)) if wanted else 0.0
-	PadArt.shift(self, button["rect"], String(button["label"]), float(button["dir"]), PadArt.GOLD if wanted else PadArt.IDLE, glow)
+	var shift := Cue.shift()
+	var wanted: bool = shift.get("dir", 0) == int(button["dir"])
+	var label := "поз %d" % (Game.tuning.position + 1)
+	if wanted and int(shift["steps"]) > 1:
+		label = "×%d" % int(shift["steps"])
+	var glow := 0.8 * Cue.blink(t) if wanted else 0.0
+	PadArt.shift(self, button["rect"], label, float(button["dir"]), PadArt.GOLD if wanted else PadArt.IDLE, glow)
 
 
 func _draw_string(button: Dictionary, cue: Dictionary, pulse: float) -> void:
@@ -98,6 +101,7 @@ static func _pull_x(string: String) -> float:
 
 func _neck_state(cue: Dictionary, pulse: float) -> Dictionary:
 	return {"held": Game.fretboard.held, "cued": cue.get("frets", []), "pulse": pulse, "ringing": _ringing_strings(),
+		"tint": Ink.of_position(Game.tuning.position),
 		"dots": _chord_dots() + _cue_dots(cue, pulse), "slides": _slides,
 		"fingers": Game.pad.points.values() if Game.pad != null else [], "t": t}
 

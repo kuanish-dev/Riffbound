@@ -4,7 +4,7 @@ extends RefCounted
 
 static func run(main: Node) -> void:
 	var suites: Array[TestSuite] = [CoreTests.new(), InstrumentTests.new(), SongTests.new(), JamTests.new(), TouchTests.new(),
-		MusicTests.new(), HarmonyTests.new(), ShopTests.new(), StyleTests.new(), SoundTests.new()]
+		MusicTests.new(), HarmonyTests.new(), DifficultyTests.new(), ProgressionTests.new(), ShopTests.new(), StyleTests.new(), SoundTests.new()]
 	var total := 0
 	var failed := 0
 	for suite in suites:

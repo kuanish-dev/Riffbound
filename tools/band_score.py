@@ -1,10 +1,20 @@
 import re
 
 LEAD_IN = 2
+PRE_ROLL = 0.01
 SLOTS = 8
 CHORD_ROOTS = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 QUALITIES = {"": [0, 4, 7], "m": [0, 3, 7], "5": [0, 7], "7": [0, 4, 7, 10], "m7": [0, 3, 7, 10], "dim": [0, 3, 6]}
 STYLES = {
+    "lesson": {"order": ["a", "a", "a", "fill"], "phrase_crash": True,
+        "count": {"hat": "x.x.x.x."},
+        "intro": {"kick": "X...X...", "snare": "..X...X.", "hat": "x.x.x.x.", "bass": "X...X...", "guitar": "X.......",
+            "strings": "X......."},
+        "a": {"kick": "X...X...", "snare": "..X...X.", "hat": "x.x.x.x.", "bass": "X...X...", "guitar": "X...X...",
+            "strings": "X...X..."},
+        "fill": {"kick": "X...X...", "snare": "..X.X.XX", "hat": "x.x.....", "bass": "X...X...", "guitar": "X...X...",
+            "strings": "X...X..."},
+        "end": {"kick": "X.......", "crash": "X.......", "bass": "X.......", "guitar": "X.......", "strings": "X......."}},
     "ballad": {"order": ["a", "a", "a", "fill"], "phrase_crash": True,
         "count": {"hat": "x.x.x.x."},
         "intro": {"kick": "X.......", "crash": "X.......", "tom1": "....x.x.", "tom3": ".....x.X", "bass": "X.......",
@@ -52,6 +62,10 @@ STYLES = {
 }
 
 
+def bar_count(song: dict) -> int:
+    return len(song["tab"] if "tab" in song else song["melody"])
+
+
 def chord(name: str) -> tuple:
     m = re.fullmatch(r"([A-G])([#b]?)(.*)", name)
     root = (CHORD_ROOTS[m.group(1)] + {"": 0, "#": 1, "b": -1}[m.group(2)]) % 12
@@ -75,7 +89,7 @@ def note_midi(name: str) -> int:
 def plan(song: dict) -> list:
     style = STYLES[song["style"]]
     chords = song["chords"]
-    count = len(song["melody"])
+    count = bar_count(song)
     bars = []
     for b in range(LEAD_IN + count + 1):
         k = b - LEAD_IN

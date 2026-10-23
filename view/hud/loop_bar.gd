@@ -17,7 +17,8 @@ static func draw(ci: CanvasItem) -> void:
 		ci.draw_line(Vector2(x, bar.position.y), Vector2(x, bar.end.y), Color(1, 1, 1, 0.25), 1.0)
 	if looper.recording:
 		ci.draw_rect(Rect2(bar.position, Vector2(bar.size.x * looper.progress(now), bar.size.y)), RECORDING)
-	var head := bar.position.x + bar.size.x * fposmod(now, looper.length) / looper.length
-	ci.draw_line(Vector2(head, bar.position.y - 4), Vector2(head, bar.end.y + 4), Color.WHITE, 2.0)
+	if looper.length > 0.0:
+		var head := bar.position.x + bar.size.x * fposmod(now, looper.length) / looper.length
+		ci.draw_line(Vector2(head, bar.position.y - 4), Vector2(head, bar.end.y + 4), Color.WHITE, 2.0)
 	var label := "● ЗАПИСЬ" if looper.recording else "ЛУП %d/%d" % [looper.layers.size(), Looper.MAX_LAYERS]
 	Glyph.text(ci, rect.position + Vector2(10, 26), label, 16, Ink.RED if looper.recording else Ink.DIM)

@@ -11,7 +11,10 @@ const JUDGEMENTS := [
 ]
 const MISS := {"id": "miss", "label": "Мимо", "score": 0, "tint": Color(1.0, 0.35, 0.35)}
 
+const REPEAT_GUARD := 0.19
+
 static var bpm := DEFAULT_BPM
+static var leniency := 1.0
 
 
 static func beat_len() -> float:
@@ -27,7 +30,7 @@ static func bar_len() -> float:
 
 
 static func widest_window() -> float:
-	return float(JUDGEMENTS.back()["window"])
+	return float(JUDGEMENTS.back()["window"]) * leniency
 
 
 static func slot_of(time: float) -> int:
@@ -36,7 +39,7 @@ static func slot_of(time: float) -> int:
 
 static func grade(error: float) -> Dictionary:
 	for j: Dictionary in JUDGEMENTS:
-		if absf(error) <= float(j["window"]):
+		if absf(error) <= float(j["window"]) * leniency:
 			return j
 	return MISS
 

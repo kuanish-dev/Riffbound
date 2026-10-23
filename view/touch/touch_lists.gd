@@ -4,8 +4,8 @@ extends RefCounted
 
 static func lists() -> Dictionary:
 	return {
-		"menu": {"field": "menu_index", "count": Songs.all().size(), "instant": true},
-		"shop": {"field": "shop_index", "count": Shop.SKINS.size(), "instant": false},
+		"menu": {"field": "menu_index", "count": Songs.all().size(), "instant": true, "levels": true},
+		"shop": {"field": "shop_index", "count": Shop.SKINS.size(), "instant": false, "levels": false},
 	}
 
 
@@ -48,7 +48,32 @@ static func rows(state: String) -> Array:
 		return out
 	var first := first_row(state)
 	for i in range(first, mini(int(list["count"]), first + int(layout(state)["rows"]))):
-		out.append({"kind": "row", "index": i, "field": list["field"], "instant": list["instant"], "rect": _row_rect(state, i - first)})
+		var frame := _row_rect(state, i - first)
+		var row := {"kind": "row", "index": i, "field": list["field"], "instant": list["instant"], "rect": frame, "frame": frame}
+		if list["levels"]:
+			row["rect"] = Rect2(frame.position, Vector2(level_rect(frame, 0).position.x - 10 - frame.position.x, frame.size.y))
+		out.append(row)
+		if list["levels"]:
+			out.append_array(_level_rows(row, frame))
+	return out
+
+
+static func level_rect(frame: Rect2, level: int) -> Rect2:
+	var size := Vector2(100, frame.size.y - 20) if Game.touch else Vector2(28, frame.size.y - 8)
+	var gap := 8.0 if Game.touch else 4.0
+	var after := Difficulty.LEVELS.size() - level
+	var right := frame.end.x - (10.0 if Game.touch else 60.0)
+	return Rect2(right - after * size.x - (after - 1) * gap, frame.get_center().y - size.y * 0.5, size.x, size.y)
+
+
+static func _level_rows(row: Dictionary, frame: Rect2) -> Array:
+	var out: Array = []
+	for level in Difficulty.LEVELS.size():
+		var pip := row.duplicate()
+		pip["level"] = level
+		pip["instant"] = false
+		pip["rect"] = level_rect(frame, level)
+		out.append(pip)
 	return out
 
 

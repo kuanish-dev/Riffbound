@@ -19,6 +19,22 @@ func menu_down() -> void:
 	Game.menu_index = posmod(Game.menu_index + 1, Songs.all().size())
 
 
+func easier() -> void:
+	_choose_difficulty(Difficulty.current_index() - 1)
+
+
+func harder() -> void:
+	_choose_difficulty(Difficulty.current_index() + 1)
+
+
+func _choose_difficulty(next: int) -> void:
+	if not Difficulty.choose(Difficulty.selected_id(), next):
+		_main.feedback.say("deny", "Сложность: %s — %s" % [Difficulty.current()["name"], "дальше некуда"])
+		return
+	var level := Difficulty.current()
+	_main.feedback.say("shift", "Сложность: %s — %s" % [level["name"], level["about"]])
+
+
 func position_down() -> void:
 	_shift_position(-1)
 
@@ -49,7 +65,7 @@ func _shift_position(delta: int) -> void:
 		return
 	var lowest := Tuning.note_name(tuning.midi("1", "low"))
 	var highest := Tuning.note_name(tuning.midi("3", "high"))
-	_main.feedback.say("shift", "Позиция %d: %s–%s" % [tuning.position, lowest, highest])
+	_main.feedback.say("shift", "Позиция %d: %s–%s" % [tuning.position + 1, lowest, highest])
 
 
 func _nudge_offset(delta: float) -> void:

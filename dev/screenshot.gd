@@ -34,7 +34,9 @@ static func _open_scene(main: Main) -> void:
 	elif DevArgs.has("shop"):
 		main.open_shop()
 		Game.shop_index = DevArgs.get_int("skin", Game.shop_index)
-	elif not DevArgs.has("menu"):
+	elif DevArgs.has("menu"):
+		TouchLists.reveal("menu")
+	else:
 		main.start_song()
 
 

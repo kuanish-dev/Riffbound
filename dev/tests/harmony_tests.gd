@@ -60,7 +60,7 @@ func test_song_without_chords_follows_key() -> void:
 
 
 func test_track_chords() -> void:
-	for track: Dictionary in Tracks.BUILT_IN:
+	for track: Dictionary in Tracks.BUILT_IN + SongTracks.TRACKS:
 		var bars := String(track["chords"]).split("|", false)
 		eq(bars.size(), int(track["bars"]), "%s: аккорд на каждый такт" % track["id"])
 		for spec in bars:
@@ -69,17 +69,15 @@ func test_track_chords() -> void:
 
 
 func test_song_tracks_match_songs() -> void:
-	var songs := 0
 	for song: Dictionary in SongBook.SONGS:
 		var track := Tracks.find(String(song["backing"]))
+		check(not track.is_empty(), "%s: у песни свой трек" % song["id"])
 		if track.is_empty():
 			continue
-		songs += 1
 		var chords := Songs.chords_of(song)
 		eq(int(track["bars"]), chords.size(), "%s: трек длиной в песню" % song["id"])
 		eq(String(track["chords"]), "|".join(chords), "%s: аккорды трека — аккорды песни" % song["id"])
 		eq(float(track["bpm"]), Songs.bpm_of(song), "%s: темп трека — темп песни" % song["id"])
-	check(songs >= 6, "песни пака играют под свои треки")
 
 
 func test_backing_plays_chords() -> void:

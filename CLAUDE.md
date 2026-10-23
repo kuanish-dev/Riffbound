@@ -21,8 +21,9 @@
   их методами `_on_<факт>`. Время приходит параметрами, часы он сам не читает. Так же устроен `StyleMeter`:
   ест факты оценки, время — в `update()`, наружу — `ranked(rank, up)` (его слушают StyleView, Shaker,
   FxLayer, звук в Main). Баланс рангов — `StyleMeter.RANKS`/`GAIN`/`DROP`; `--sim` печатает стиль каждой песни.
-- Код управляется таблицами: `SongBook.SONGS` (табы), `LayerSong.EVENT_NOTES`, `Tuning.SCALES`, `Backing.STYLES`/
-  `PARTS`/`KEYS`, `Harmony.QUALITIES`/`PROGRESSIONS`, `Tracks.BUILT_IN`/`LOADERS`, `SampleBank.NOTES`, `FxLayer.TEX`, `Shop.SKINS` (облик гитары —
+- Код управляется таблицами: `Difficulty.LEVELS` (пять уровней: какие доли остаются, аккорды, глушняки, техника, рука сама — `auto_hand`, окно, монеты, ключ рекорда; чем выше, тем больше механик — `test_harder_levels_add_mechanics`),
+  `SongBook.SONGS` (табы), `LayerSong.EVENT_NOTES`, `Tuning.SCALES`, `Backing.STYLES`/
+  `PARTS`/`KEYS`, `Harmony.QUALITIES`/`PROGRESSIONS`, `Tracks.BUILT_IN`/`LOADERS`, `SongTracks.TRACKS`, `SampleBank.NOTES`, `FxLayer.TEX`, `Shop.SKINS` (облик гитары —
   данные), `UiSounds.SOUNDS` (рецепты звуков отклика), `Main.COMMAND_SOUNDS`, `Feedback.FACT_SOUNDS`, `StyleMeter.RANKS`, `Shaker.KICKS`/`SWAY`, `Sfx.UP`/`DOWN`, `Layout.GUITAR_POSES`, `StageView.PALETTE`/
   `STRIPES`/`SHADOWS`, `Glyph.NEON_LAYERS` (вид в духе Hotline Miami — неоновые надписи через `Glyph.neon`), `GuitarShapes.SHAPES`/`HEADS`/`PICKUPS`, `TouchLists.lists()` (списки строками: меню, магазин), `Timing.JUDGEMENTS`, `SongJudge.STARS`/`TECH_NAMES`, `InputConfig.KEYS`, `Main.COMMANDS`
   (режим → клавиша → «метод» или «объект.метод»), `TouchButtons.GUITAR`/`EXTRA` (сенсорные кнопки → те же действия ввода;
@@ -34,9 +35,14 @@
   `tools/build_assets.py` режет ровно в `bars` тактов от сильной доли; свои — часы заворачивают сами.
   Метроном (N, `Game.metronome`) — второй плеер Conductor (`set_click`, луп `Backing.metronome` в такт):
   стартует и перескакивает вместе с музыкой, выключенный играет беззвучно — так он не уходит с доли.
-- Пак «Классика в роке»: песня играет под свой трек (backing = id трека, тот же id), трек — живая группа, сведённая
-  заранее (`tools/band.py`: STYLES, MIX), один источник — `tools/classics.py` (мелодия нотами → таб, аккорды,
-  стиль). Позиции руки таб выбирает сам (меньше сдвигов). Согласованность трека и песни — `test_song_tracks_match_songs`.
+- Уроки и песни: каждая играет под свой трек (backing = id трека, тот же id), трек — живая группа, сведённая
+  заранее (`tools/band.py`: STYLES, MIX). Один источник — `tools/classics_data.py` (урок — таб `tab`, песня — мелодия
+  нотами `melody` → таб с позициями руки, где меньше сдвигов); `tools/classics.py book` пишет `core/song_book.gd`
+  и `core/song_tracks.gd` целиком — руками их не править. Порядок — от лёгкого к трудному: сначала уроки
+  (`lesson: true`, по механике на урок; `keeps` — правила уровня, которые урок не отдаёт: `Difficulty.rules_for`,
+  `SongJudge.rules`), потом песни по росту трудности; держит `ProgressionTests` (трудность —
+  плотность нот + техники; техника песни сначала есть в уроке). Треки уроков (`jam: false`) не в джеме
+  (`MusicLoader.jam_choices`). Согласованность трека и песни — `test_song_tracks_match_songs`.
   Сэмплы (~750 МБ) — вне репозитория, в `~/Desktop/projects/riffbound-sources` (что откуда — CREDITS.md).
 - Гармония — `Harmony` (имя аккорда → ноты). Музыка знает свои аккорды по тактам: `Game.chords` (по кругу от начала часов).
   Стиль играет их (`Backing.render(id, аккорды)`: бас — ступени `BASS_NOTES`, клавиши — аккорд), у песни — её `chords`
@@ -63,7 +69,8 @@
   в методе (не `hud.toast` напрямую). Имена звуков проверяет `SoundTests` (и в таблицах, и в вызовах в коде).
 - Новая форма корпуса обязана проходить `ShopTests` (контур триангулируется, ручки и звукосниматели на корпусе);
   смотреть все гитары разом — снимок `--shop --skin=N` или лист скинов.
-- Новая встроенная песня обязана проходить `test_built_in_songs_are_playable` и `--sim` на 100%.
+- Новая встроенная песня обязана проходить `test_built_in_songs_are_playable`, `ProgressionTests` и `--sim` на 100%
+  на всех пяти уровнях.
 
 ## Подводные камни
 - Подложки песен собираются в фоновом потоке, пока игрок в меню (`MusicLoader.prerender_tick`; на эмуляторе с SwiftShader
@@ -98,6 +105,9 @@
   обнуляет модель в `after_all`, иначе утечка при выходе.
   Окно игры при запуске забирает фокус: если пользователь в это время печатает, нажатия попадут в игру.
 - `Input.parse_input_event` доходит до `_unhandled_input` только на следующем кадре (бот действует с запасом).
+- Легато живёт `Fretboard.LEGATO_WINDOW` (0,65 с) от прошлой ноты на струне: на медленном темпе нота перед
+  хаммер-оном или пулл-оффом не может тянуться долго (90 bpm — уже не две восьмые). `test_built_in_songs_are_playable`
+  считает это по темпу песни.
 - Общие лады на все струны: прижатый лад, пока звенит другая струна, даёт на ней хаммер-он. Поэтому оценка
   прощает случайное легато, а бот переставляет пальцы «сначала отпустить».
 
@@ -110,11 +120,12 @@
   глушёный ладонью пауэр-аккорд, `X` — открытый (звенит до следующего удара). Клавиши/струнные: аккорд до следующего.
   `order` — какие такты стиля по кругу; у группы `count`/`intro` — два такта отсчёта, `end` — последний такт.
 - Аккорды трека (`Tracks.BUILT_IN`): такты через `|`, внутри такта — через пробел («D A|Bm F#m»).
-- Мелодия пака (`tools/classics.py`): по тактам, восемь восьмых: нота (`E5`, `D#5`, `Bb4`), `-` пауза, `=` держать.
+- Мелодия песни (`tools/classics_data.py`): по тактам, восемь восьмых: нота (`E5`, `D#5`, `Bb4`), `-` пауза, `=` держать;
+  у урока вместо `melody` — `tab` (такты как в `SongBook`), `counter` — подголосок чистой гитарой в треке.
 - Жест для снимка (`dev/gestures.gd`): `[время, палец, press|drag|lift|wiggle, кнопка, сдвиг от её середины]`;
   wiggle — палец качается вокруг сдвига, пока не придёт его следующий шаг.
 - Аргументы разработки (после `--`): `--test`, `--sim`, `--screenshot=<png>` (`--at=<с>`, `--autoplay`, `--jam`,
-  `--menu`, `--shop --skin=N`, `--gesture=<имя>`), `--song=N` (с 1), `--play`, `--jam`, `--backing=<id>`, `--touch`
+  `--menu`, `--shop --skin=N`, `--gesture=<имя>`), `--difficulty=novice|easy|medium|hard|expert`, `--song=N` (с 1), `--play`, `--jam`, `--backing=<id>`, `--touch`
   (мышь как палец), `--metronome`, `--more` (панель «Ещё»), `--tones` (громкость гитар).
 
 ## Почему так (неочевидное)
@@ -123,6 +134,10 @@
 - Метроном выключенный играет беззвучно, а не стоит: так при включении он не сбивается с доли.
 - Окно прощения `Fretboard.LENIENCY`: лад, зажатый чуть позже удара, считается ладом этого удара (звук удара
   тогда звучит ещё раз — `corrected`). Легато открыто `LEGATO_WINDOW` с последней ноты на струне.
+- Сложность упрощает ноты песни при старте (`Difficulty.simplify` в `SongJudge.start`), окно попадания —
+  `Timing.leniency`. Защита от двойного удара (`Timing.REPEAT_GUARD`) не растёт с окном: иначе повтор одной ноты
+  восьмыми принимался за дребезг. Бот (`--sim`) по умолчанию играет «эксперт», `--difficulty=novice|easy|medium|hard` — другие; на уровнях с
+  `auto_hand` руку сдвигает Main (`_move_hand_to_next_note`), бот её не трогает.
 - MIDI: каждая струна — свой канал, чтобы бенд одной струны не тянул остальные.
 - Звуки отклика (`UiSounds`) играют по кругу из пула плееров — быстрые звуки не обрывают друг друга.
 - Аккорд на одной струне звучит тише каждой ноты (`StringVoice`), чтобы в сумме не громче одиночной.
@@ -149,9 +164,9 @@ godot --path . --write-movie <папка>/jam.avi --fixed-fps 30 -- --screenshot
 ffmpeg -ss 5.5 -t 9.5 -i song.avi -vf "fps=10,scale=640:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle" -loop 0 docs/media/gameplay.gif
 python -I tools/build_assets.py <папка_загрузок> [tracks]     # assets/ (numpy, scipy, soundfile, librosa, ffmpeg)
 python -I tools/build_assets.py --chords                       # аккорды тактов встроенных треков → Tracks.BUILT_IN
-# «Классика в роке»: мелодии, аккорды, аранжировки — tools/classics.py; группа из сэмплов — tools/band.py (pedalboard)
-python -I tools/classics.py tabs                               # табы → SongBook.SONGS (вставить)
-python -I tools/classics.py render ~/Desktop/projects/riffbound-sources   # assets/tracks/<id>.ogg + строки Tracks.BUILT_IN
+# уроки и песни: ноты, аккорды, аранжировки — tools/classics_data.py; группа из сэмплов — tools/band.py (pedalboard)
+python -I tools/classics.py book                               # core/song_book.gd + core/song_tracks.gd
+python -I tools/classics.py render ~/Desktop/projects/riffbound-sources   # assets/tracks/<id>.ogg (~20 с)
 # APK (пресет export_presets.cfg «Android», шаблоны 4.7.2, SDK/Java прописаны в editor_settings-4.7.tres):
 JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home \
 GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$HOME/.android/debug.keystore \

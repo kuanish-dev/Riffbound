@@ -87,6 +87,7 @@ func test_music_choices() -> void:
 	eq(choices.size(), Backing.STYLES.size() + Tracks.all().size(), "стили и треки по кругу")
 	eq(MusicLoader.find("funked_up")["kind"], "track", "трек")
 	eq(MusicLoader.find("нет такой")["id"], Backing.STYLES[0]["id"], "неизвестная подложка — первый стиль")
+	eq(MusicLoader.find("lesson_1")["kind"], "track", "урок играет под свой трек")
 
 
 func test_nearest_guitar_sample() -> void:

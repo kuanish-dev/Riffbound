@@ -77,7 +77,7 @@ func test_chord_with_two_hands() -> void:
 
 func test_menu_row_starts_at_once() -> void:
 	Game.state = "menu"
-	var second: Rect2 = TouchLists.rows("menu")[1]["rect"]
+	var second: Rect2 = _song_rows()[1]["rect"]
 	_touch(0, second.get_center(), true)
 	eq(sent, [], "пока палец на строке — ничего: вдруг это прокрутка")
 	_touch(0, second.get_center(), false)
@@ -155,13 +155,12 @@ func test_finger_scroll_reaches_every_song() -> void:
 	Game.touch = true
 	Game.state = "menu"
 	Game.scroll["menu"] = 0.0
-	var rows: Array = TouchLists.rows("menu")
-	var top: Rect2 = rows[0]["rect"]
+	var top: Rect2 = _song_rows()[0]["rect"]
 	_touch(0, top.get_center(), true)
 	_drag(0, top.get_center() + Vector2(4, -2000))
 	_touch(0, top.get_center() + Vector2(4, -2000), false)
 	eq(sent, [], "листал — песню не запустил")
-	var last: Dictionary = TouchLists.rows("menu").back()
+	var last: Dictionary = _song_rows().back()
 	eq(int(last["index"]), Songs.all().size() - 1, "пролистал до последней песни")
 	_touch(0, (last["rect"] as Rect2).get_center(), true)
 	_touch(0, (last["rect"] as Rect2).get_center(), false)
@@ -225,6 +224,33 @@ func test_pad_shows_fingers_pull_and_slide() -> void:
 	eq(pad.points.size(), 2, "два пальца на экране")
 	_touch(1, from + Vector2(40, 0), false)
 	check(pad.pull_of("mid") == null and pad.points.size() == 1, "палец поднят — не тянет и не виден")
+
+
+func test_level_pip_picks_song_level() -> void:
+	var was_touch := Game.touch
+	Game.touch = true
+	Game.state = "menu"
+	var saved := Songs.persist
+	Songs.persist = false
+	var pip := _pip(1, 3)
+	_touch(0, (pip["rect"] as Rect2).get_center(), true)
+	_touch(0, (pip["rect"] as Rect2).get_center(), false)
+	eq(sent, [], "уровень выбран, песня не запущена")
+	eq([Game.menu_index, Difficulty.index_for(String(Songs.all()[1]["id"]))], [1, 3], "у этой песни — 4-й уровень")
+	Difficulty.chosen.clear()
+	Songs.persist = saved
+	Game.touch = was_touch
+
+
+func _pip(index: int, level: int) -> Dictionary:
+	for row: Dictionary in TouchLists.rows("menu"):
+		if row.get("level", -1) == level and row["index"] == index:
+			return row
+	return {}
+
+
+func _song_rows() -> Array:
+	return TouchLists.rows("menu").filter(func(r: Dictionary) -> bool: return not r.has("level"))
 
 
 func _center(action: String) -> Vector2:

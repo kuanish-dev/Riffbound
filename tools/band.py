@@ -5,11 +5,10 @@ from pedalboard import (Chorus, Compressor, Distortion, Gain, HighpassFilter, Hi
     LowShelfFilter, PeakFilter, Pedalboard, Reverb)
 
 from band_samples import RATE, Kit, Pitched, mix_into, mix_into_mono, scan, shaped, stereo
-from band_score import LEAD_IN, SLOTS, chord_at, events, low_note, note_midi, plan, ring_until
+from band_score import LEAD_IN, PRE_ROLL, SLOTS, bar_count, chord_at, events, low_note, note_midi, plan, ring_until
 
 ROOT = Path(__file__).resolve().parent.parent
 TRACKS = ROOT / "assets" / "tracks"
-PRE_ROLL = 0.01
 TRACK_RMS = 0.12
 VELOCITY = {"lower": 0.62, "upper": 0.95}
 DRUMS = {"kick": ["KdrumR", "KdrumL"], "snare": ["Snare"], "hat": ["HihatClosed"], "open": ["HihatOpen"],
@@ -21,7 +20,6 @@ PALM = {"length": 0.85, "cutoff": 1400.0}
 TAKE_DELAY = [0.0, 0.012]
 STRUM = 0.004
 MIX = {"drums": 0.1, "bass": 0.1, "guitars": 0.08, "strings": 0.025, "clean": 0.05}
-KEY_INDEX = {n: i for i, n in enumerate(["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"])}
 
 
 class Band:
@@ -36,7 +34,7 @@ class Band:
 
     def render(self, song: dict) -> np.ndarray:
         slot = 60.0 / song["bpm"] / 2 * RATE
-        total = (LEAD_IN + len(song["melody"]) + 1) * SLOTS
+        total = (LEAD_IN + bar_count(song) + 1) * SLOTS
         length = int(round(total * slot))
         stems = {"drums": self.drums(song, slot, length), "bass": self.bass_part(song, slot, length, total),
             "guitars": self.guitars(song, slot, length, total), "strings": self.strings(song, slot, length, total),
@@ -160,11 +158,5 @@ def render_all(songs: list, src: str) -> None:
     band = Band(Path(src).expanduser())
     TRACKS.mkdir(parents=True, exist_ok=True)
     for song in songs:
-        mix = band.render(song)
-        build_assets.write_ogg(TRACKS / f"{song['id']}.ogg", mix, 0.4)
-        bars = LEAD_IN + len(song["melody"]) + 1
-        chords = [song["chords"][0]] * LEAD_IN + song["chords"] + [song["chords"][-1]]
-        print('\t{"id": "%s", "name": "%s", "author": "%s", "file": "res://assets/tracks/%s.ogg",\n'
-            '\t\t"bpm": %.1f, "bars": %d, "offset": %.2f, "key": %d, "scale": "%s",\n\t\t"chords": "%s"},' % (
-            song["id"], song["name"], song["author"], song["id"], song["bpm"], bars, PRE_ROLL, KEY_INDEX[song["key"]],
-            song["scale"], "|".join(chords)))
+        build_assets.write_ogg(TRACKS / f"{song['id']}.ogg", band.render(song), 0.4)
+        print(song["id"])

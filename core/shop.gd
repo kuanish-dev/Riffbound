@@ -111,8 +111,8 @@ static func current() -> Dictionary:
 	return skin(equipped)
 
 
-static func reward(result: Dictionary) -> int:
-	var earned := coins_for(result)
+static func reward(result: Dictionary, scale := 1.0) -> int:
+	var earned := roundi(coins_for(result) * scale)
 	coins += earned
 	_save()
 	return earned

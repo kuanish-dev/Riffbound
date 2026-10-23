@@ -23,7 +23,26 @@ static func next() -> Dictionary:
 
 
 static func glow(cue: Dictionary, t: float) -> float:
-	return float(cue.get("power", 0.0)) * (0.65 + 0.35 * sin(t * BLINK))
+	return float(cue.get("power", 0.0)) * blink(t)
+
+
+static func blink(t: float) -> float:
+	return 0.65 + 0.35 * sin(t * BLINK)
+
+
+static func shift() -> Dictionary:
+	if Game.state != "song" or not Game.needs.get("positions", true):
+		return {}
+	var next := Game.performance.next_note()
+	var delta := int(next.get("pos", Game.tuning.position)) - Game.tuning.position
+	return {} if delta == 0 else {"dir": signi(delta), "steps": absi(delta)}
+
+
+static func shift_label(dir: int, steps: int) -> String:
+	var arrows := ("»" if dir > 0 else "«").repeat(steps)
+	if Game.touch:
+		return arrows
+	return "%s %s" % [InputConfig.key_label("position_up" if dir > 0 else "position_down"), arrows]
 
 
 static func _add_note(cue: Dictionary, note: Dictionary, ahead: float) -> void:

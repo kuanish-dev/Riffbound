@@ -19,9 +19,9 @@ func test_reward_for_song() -> void:
 
 
 func test_first_start_pays_for_records() -> void:
-	Songs.record("warmup", {"score": 4200, "stars": 3, "accuracy": 0.8}, false)
+	Songs.record(String(SongBook.SONGS[0]["id"]), {"score": 4200, "stars": 3, "accuracy": 0.8}, false)
 	Shop.load_data(null)
-	check(Shop.coins >= 3 * Shop.COINS_PER_STAR + 4, "за рекорд «Разминки» — монеты (%d)" % Shop.coins)
+	check(Shop.coins >= 3 * Shop.COINS_PER_STAR + 4, "за рекорд первой песни — монеты (%d)" % Shop.coins)
 
 
 func test_buy_and_equip() -> void:

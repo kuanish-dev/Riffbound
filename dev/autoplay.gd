@@ -28,20 +28,20 @@ func _start() -> void:
 	_do_frets({"frets": []})
 	_position = Game.tuning.position if Game.tuning != null else 0
 	if Game.state == "song":
-		_plan(Game.performance.notes)
+		_plan(Game.performance.notes, bool(Game.performance.rules["auto_hand"]))
 	elif Game.state == "jam":
 		_send("record", true)
 		_send("record", false)
-		_plan(Songs.notes_of(SongBook.SONGS[0]))
+		_plan(Songs.notes_of(SongBook.SONGS[0]), false)
 
 
-func _plan(notes: Array) -> void:
+func _plan(notes: Array, auto_hand: bool) -> void:
 	var position := _position
 	var last := -INF
 	for i in notes.size():
 		var note: Dictionary = notes[i]
 		var t := int(note["slot"]) * Timing.slot_len()
-		if int(note["pos"]) != position:
+		if int(note["pos"]) != position and not auto_hand:
 			position = int(note["pos"])
 			_add(maxf(t - SHIFT_AHEAD, last + SHIFT_AFTER), {"kind": "position", "to": position})
 		last = t

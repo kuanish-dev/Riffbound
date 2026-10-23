@@ -2,12 +2,16 @@ class_name SongView
 extends HudLayer
 
 const BEND_MARK := [Vector2(10, -6), Vector2(22, -26), Vector2(14, -22), Vector2(22, -17)]
+const SHIFT_ZONE_ALPHA := 0.14
+const RIFF_ALPHA := 0.07
+const BADGE_SIZE := 20
 
 
 static func draw_top(ci: CanvasItem) -> void:
 	var performance := Game.performance
 	ListArt.top_panel(ci)
-	Glyph.title(ci, Vector2(20, 36), String(performance.song.get("name", "")), 21, Color.WHITE)
+	var title := "%s · %s" % [performance.song.get("name", ""), Difficulty.current()["name"]]
+	Glyph.title(ci, Vector2(20, 36), title, 21, Color.WHITE)
 	var score := "%d" % performance.score
 	var right := 1070.0 if Game.touch else 1250.0
 	var width := Glyph.TITLE.get_string_size(score, HORIZONTAL_ALIGNMENT_LEFT, -1, 26).x
@@ -20,13 +24,15 @@ func _draw() -> void:
 	draw_top(self)
 	Lanes.draw(self, strikes, Cue.next(), t)
 	var now := Lanes.slot_now()
-	_draw_position_changes(now)
+	if Game.needs.get("positions", false):
+		_draw_riffs(now)
+		_draw_shift_zones(now)
 	var previous := {}
 	for note: Dictionary in Game.performance.notes:
 		if _visible(note, now):
 			_draw_note(note, previous.get(note["string"], {}), now)
 		previous[note["string"]] = note
-	_draw_position_hint()
+	_draw_shift_hint()
 
 
 func _visible(note: Dictionary, now: float) -> bool:
@@ -62,27 +68,64 @@ func _draw_bend_mark(at: Vector2, ink: Color) -> void:
 	draw_line(at + BEND_MARK[1], at + BEND_MARK[3], ink, 2.0, true)
 
 
-func _draw_position_changes(now: float) -> void:
+func _draw_riffs(now: float) -> void:
+	var notes := Game.performance.notes
+	var first := 0
+	for i in notes.size():
+		var last := i == notes.size() - 1
+		if last or int(notes[i + 1]["pos"]) != int(notes[i]["pos"]):
+			_draw_riff(notes[first], notes[i], now)
+			first = i + 1
+
+
+func _draw_riff(first: Dictionary, last: Dictionary, now: float) -> void:
 	var area := Lanes.rect()
-	var last_pos := -1
-	for note: Dictionary in Game.performance.notes:
-		var x := Lanes.slot_x(float(note["slot"]), now)
-		var changed := last_pos >= 0 and int(note["pos"]) != last_pos
-		if changed and x > Lanes.left() and x < area.end.x + Lanes.NOTE_R:
-			var line_x := x - Lanes.NOTE_R - 6
-			draw_dashed_line(Vector2(line_x, area.position.y + 6), Vector2(line_x, area.end.y - 6), Ink.GOLD, 2.0, 6.0)
-		last_pos = int(note["pos"])
-
-
-func _draw_position_hint() -> void:
-	var next := Game.performance.next_note()
-	if next.is_empty() or int(next["pos"]) == Game.tuning.position:
+	var x0 := maxf(Lanes.slot_x(float(first["slot"]), now) - Lanes.NOTE_R - 2, Lanes.left())
+	var x1 := minf(Lanes.slot_x(float(last["slot"]) + float(last["len"]), now), area.end.x)
+	if x1 <= x0:
 		return
-	var up := int(next["pos"]) > Game.tuning.position
-	var key := InputConfig.key_label("position_up" if up else "position_down")
-	if Game.touch:
-		key = "поз →" if up else "← поз"
-	Glyph.neon(self, Vector2(Layout.HIT_X + 120, Lanes.rect().end.y - 22), "жми %s" % key, 22, Ink.GOLD)
+	var ink := Ink.of_position(int(first["pos"]))
+	draw_rect(Rect2(x0, area.position.y + 4, x1 - x0, area.size.y - 8), Color(ink, RIFF_ALPHA))
+	draw_line(Vector2(x0, area.end.y - 5), Vector2(x1, area.end.y - 5), Color(ink, 0.7), 3.0)
+
+
+func _draw_shift_zones(now: float) -> void:
+	var previous := {}
+	for note: Dictionary in Game.performance.notes:
+		if not previous.is_empty() and int(note["pos"]) != int(previous["pos"]):
+			_draw_shift_zone(previous, note, now)
+		previous = note
+
+
+func _draw_shift_zone(before: Dictionary, after: Dictionary, now: float) -> void:
+	var area := Lanes.rect()
+	var to_slot := float(after["slot"])
+	var from_slot := minf(float(before["slot"]) + float(before["len"]), to_slot - 0.5)
+	var x0 := maxf(Lanes.slot_x(from_slot, now), Lanes.left())
+	var x1 := Lanes.slot_x(to_slot, now) - Lanes.NOTE_R - 6
+	if x1 < Lanes.left() or x0 > area.end.x:
+		return
+	draw_rect(Rect2(x0, area.position.y + 4, maxf(2.0, x1 - x0), area.size.y - 8), Color(Ink.GOLD, SHIFT_ZONE_ALPHA))
+	draw_dashed_line(Vector2(x1, area.position.y + 6), Vector2(x1, area.end.y - 6), Ink.GOLD, 2.0, 6.0)
+	var delta := int(after["pos"]) - int(before["pos"])
+	var label := Cue.shift_label(signi(delta), absi(delta))
+	_draw_badge(Vector2(x1, area.position.y + 6), label, Ink.of_position(int(after["pos"])))
+
+
+func _draw_badge(right_top: Vector2, text: String, fill: Color) -> void:
+	var width := Glyph.TITLE.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, BADGE_SIZE).x + 16
+	var box := Rect2(right_top.x - width, right_top.y, width, BADGE_SIZE + 8)
+	draw_rect(box, fill)
+	Glyph.title(self, Vector2(box.position.x + 8, box.end.y - 6), text, BADGE_SIZE, Ink.PANEL)
+
+
+func _draw_shift_hint() -> void:
+	var shift := Cue.shift()
+	if shift.is_empty():
+		return
+	var text := "рука: %s" % Cue.shift_label(int(shift["dir"]), int(shift["steps"]))
+	var ink := Color(Ink.GOLD, Cue.blink(t))
+	Glyph.neon(self, Vector2(Layout.HIT_X + 130, Lanes.rect().end.y - 22), text, 24, ink)
 
 
 static func _ink(note: Dictionary) -> Color:
@@ -90,4 +133,4 @@ static func _ink(note: Dictionary) -> Color:
 		return Ink.GOLD
 	if note["state"] == "miss":
 		return Ink.RED
-	return Glyph.INK
+	return Ink.of_position(int(note["pos"]))

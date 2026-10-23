@@ -9,10 +9,10 @@ const TRAIL_PARTS := 12
 
 static func draw(ci: CanvasItem, cells: Dictionary, s: Dictionary) -> void:
 	var whole := _bounds(cells)
-	PadArt.panel(ci, whole, PadArt.IDLE)
+	PadArt.panel(ci, whole, s["tint"])
 	for fret: String in cells:
 		_draw_cell(ci, cells[fret], fret, s)
-	_draw_fret_wires(ci, cells, whole)
+	_draw_fret_wires(ci, cells, whole, s["tint"])
 	for string: String in ROWS:
 		_draw_string(ci, whole, string, s["ringing"].get(string, {}), cells, float(s["t"]))
 	for dot: Dictionary in s["dots"]:
@@ -47,15 +47,15 @@ static func _draw_cell(ci: CanvasItem, cell: Rect2, fret: String, s: Dictionary)
 	Glyph.title_center(ci, cell.get_center().x, cell.end.y - 22, fret, 38, Color(Color.WHITE, 1.0 if held else 0.8))
 
 
-static func _draw_fret_wires(ci: CanvasItem, cells: Dictionary, whole: Rect2) -> void:
+static func _draw_fret_wires(ci: CanvasItem, cells: Dictionary, whole: Rect2, tint: Color) -> void:
 	var top := whole.position.y + 10
 	var bottom := whole.end.y - 10
 	ci.draw_line(Vector2(whole.position.x + 7, top), Vector2(whole.position.x + 7, bottom), PadArt.IDLE.lightened(0.4), 6.0)
 	var frets: Array = cells.keys()
 	for i in range(1, frets.size()):
 		var x := ((cells[frets[i - 1]] as Rect2).end.x + (cells[frets[i]] as Rect2).position.x) * 0.5
-		ci.draw_line(Vector2(x, top), Vector2(x, bottom), Color(PadArt.NEON, 0.18), 10.0)
-		ci.draw_line(Vector2(x, top), Vector2(x, bottom), PadArt.NEON.darkened(0.25), 3.0)
+		ci.draw_line(Vector2(x, top), Vector2(x, bottom), Color(tint, 0.18), 10.0)
+		ci.draw_line(Vector2(x, top), Vector2(x, bottom), tint.darkened(0.25), 3.0)
 
 
 static func _draw_string(ci: CanvasItem, whole: Rect2, string: String, ringing: Dictionary, cells: Dictionary, t: float) -> void:

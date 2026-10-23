@@ -15,6 +15,7 @@ func _init(main: Main) -> void:
 
 func _ready() -> void:
 	Songs.persist = false
+	Difficulty.forced = Difficulty.index_of(DevArgs.get_str("difficulty", "expert"))
 	_main.add_child(Autoplay.new())
 	_main.performance.fact.connect(_on_fact)
 	_run_all()

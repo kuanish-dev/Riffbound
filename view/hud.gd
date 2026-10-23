@@ -31,8 +31,8 @@ func reset() -> void:
 	_jam().clear_played()
 
 
-func toast(text: String) -> void:
-	_toast.show_text(text)
+func toast(text: String, time := Toast.SHOW_TIME) -> void:
+	_toast.show_text(text, time)
 
 
 func on_voiced(_note: String, string: String, corrected: bool) -> void:
