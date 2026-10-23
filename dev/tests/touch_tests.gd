@@ -49,6 +49,20 @@ func test_swipe_across_strings_strums() -> void:
 		"провёл через струны — удар по каждой")
 
 
+func test_gap_between_strings_is_dead_zone() -> void:
+	var mid: Rect2 = TouchPad.button_at("song", _center("strike_mid"))["rect"]
+	_touch(0, Vector2(mid.get_center().x, mid.position.y - 7), true)
+	eq(sent, [], "в промежуток между струнами — не удар")
+	check(mid.size.y >= 120.0 and mid.size.x >= 200.0, "кнопка струны крупная")
+
+
+func test_strings_stack_like_the_highway() -> void:
+	var high: Rect2 = TouchPad.button_at("song", _center("strike_high"))["rect"]
+	var low: Rect2 = TouchPad.button_at("song", _center("strike_low"))["rect"]
+	check(high.position.y < low.position.y, "верхняя струна сверху, как на дорожке")
+	check(not high.intersects(Layout.HIGHWAY_TOUCH), "струны не залезают на дорожку")
+
+
 func test_chord_with_two_hands() -> void:
 	_touch(0, _center("fret_1"), true)
 	_touch(1, _center("strike_low"), true)

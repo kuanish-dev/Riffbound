@@ -1,17 +1,23 @@
 class_name Conductor
 extends Node
 ## Музыкальные часы. Время песни берётся из позиции звука, а не из кадров, иначе ритм «плывёт»:
-## позиция плеера + время с последнего смешивания − задержка вывода; обороты лупа считаются.
+## позиция плеера + время с последнего смешивания − задержка вывода; обороты круга считаются.
+## Музыка — круг loop_len секунд (целое число тактов) с loop_start файла; offset — где в круге
+## сильная доля. Петля, равная файлу, крутится сама (loop у потока), длинный файл часы заворачивают сами.
 ## Без звука (headless) часы идут по delta кадра, в тестах время выставляется вручную.
 
 enum Source { AUDIO, DELTA, MANUAL }
+
+const SEEK_LATE := 0.01
 
 var source := Source.AUDIO
 ## Калибровка: на сколько секунд игрок бьёт позже, чем слышит долю.
 var input_offset := 0.0
 var player: AudioStreamPlayer
 var running := false
-var _loop_len := 0.0
+var loop_len := 1.0
+var loop_start := 0.0
+var offset := 0.0
 var _time := 0.0
 var _loops := 0
 var _last_raw := 0.0
@@ -21,27 +27,29 @@ func _init() -> void:
 	process_priority = -10
 
 
-func setup(loop_seconds: float) -> void:
+func setup() -> void:
 	player = AudioStreamPlayer.new()
 	player.volume_db = -5.0
 	add_child(player)
-	_loop_len = loop_seconds
 	if DisplayServer.get_name() == "headless":
 		source = Source.DELTA
 
 
-## Подложка — луп длиной loop_seconds; часы считают по ней. Сменить можно только до start().
-func set_music(music: AudioStreamWAV) -> void:
-	player.stream = music
+## Музыка и её круг. Сменить можно только до start().
+func set_music(stream: AudioStream, seconds: float, start_at := 0.0, downbeat := 0.0) -> void:
+	player.stream = stream
+	loop_len = maxf(seconds, 0.1)
+	loop_start = start_at
+	offset = downbeat
 
 
 func start() -> void:
 	_time = 0.0
 	_loops = 0
-	_last_raw = 0.0
+	_last_raw = loop_start
 	running = true
-	if source == Source.AUDIO and player != null:
-		player.play(0.0)
+	if source == Source.AUDIO and player != null and player.stream != null:
+		player.play(loop_start)
 
 
 func stop() -> void:
@@ -58,20 +66,34 @@ func set_manual(time: float) -> void:
 
 
 func _process(delta: float) -> void:
-	if running and source == Source.DELTA:
+	if not running:
+		return
+	if source == Source.DELTA:
 		_time += delta
+	elif source == Source.AUDIO and player != null and player.stream != null:
+		# круг короче файла: на конце круга — обратно к его началу (запас — на петлю, равную файлу:
+		# она заворачивается сама, а её длина может быть на долю сэмпла больше круга)
+		if not player.playing or player.get_playback_position() >= loop_start + loop_len + SEEK_LATE:
+			player.play(loop_start)
 
 
-## Время песни в секундах, не убывает.
+## Время песни в секундах от сильной доли первого круга, не убывает.
 func now() -> float:
 	if running and source == Source.AUDIO and player != null and player.playing:
 		var raw := player.get_playback_position()
-		if raw < _last_raw - _loop_len * 0.5:
+		if raw < _last_raw - loop_len * 0.5:
 			_loops += 1
 		_last_raw = raw
-		var t := _loops * _loop_len + raw + AudioServer.get_time_since_last_mix() - AudioServer.get_output_latency()
+		var t := _loops * loop_len + raw - loop_start - offset + AudioServer.get_time_since_last_mix() - AudioServer.get_output_latency()
 		_time = maxf(_time, t)
 	return _time
+
+
+## Где сейчас звучит файл музыки (секунды файла) — для тап-темпа: по нему ищется сильная доля.
+func music_position() -> float:
+	if source == Source.AUDIO and player != null and player.playing:
+		return player.get_playback_position() + AudioServer.get_time_since_last_mix() - AudioServer.get_output_latency()
+	return loop_start + fposmod(_time + offset, loop_len)
 
 
 ## Время по меркам игрока — с поправкой калибровки. По нему оцениваются удары.
@@ -80,8 +102,8 @@ func player_time() -> float:
 
 
 func slot_f() -> float:
-	return now() / Timing.SLOT_LEN
+	return now() / Timing.slot_len()
 
 
 func beat_f() -> float:
-	return now() / Timing.BEAT_LEN
+	return now() / Timing.beat_len()

@@ -40,12 +40,12 @@ static func vlq(value: int) -> PackedByteArray:
 
 
 static func ticks(seconds: float) -> int:
-	return roundi(seconds / Timing.BEAT_LEN * PPQ)
+	return roundi(seconds / Timing.beat_len() * PPQ)
 
 
 ## Темп и размер 4/4.
 static func _tempo_events() -> Array:
-	var tempo := roundi(Timing.BEAT_LEN * 1000000.0)
+	var tempo := roundi(Timing.beat_len() * 1000000.0)
 	return [
 		[0, 0, PackedByteArray([0xFF, 0x51, 0x03, (tempo >> 16) & 0xFF, (tempo >> 8) & 0xFF, tempo & 0xFF])],
 		[0, 0, PackedByteArray([0xFF, 0x58, 0x04, 0x04, 0x02, 0x18, 0x08])],
@@ -75,7 +75,7 @@ static func _layer_events(layer: Array) -> Array:
 			if kind != "mute":
 				events.append([at, 3, PackedByteArray([0x90 | channel, midi, VELOCITY])])
 				sounding[channel].append(midi)
-	var end := ticks(Synth.loop_seconds())
+	var end := ticks(Looper.BARS * Timing.bar_len())
 	for channel: int in sounding:
 		for midi: int in sounding[channel]:
 			events.append([end, 1, PackedByteArray([0x80 | channel, midi, 0])])

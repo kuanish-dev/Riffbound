@@ -5,24 +5,26 @@ extends Node
 ## - hold — держится пальцем (лады, бенд); скольжение пальца на соседний лад сначала жмёт новый,
 ##   потом отпускает старый — получается легато, как на грифе;
 ## - tap — срабатывает при касании и когда палец въезжает в кнопку: удар по струне (проведи через
-##   струны — бой), позиция, кнопки меню и джема;
+##   струны сверху вниз — бой), позиция, кнопки меню и джема;
 ## - row — строка меню: касание выбирает песню, повторное — запускает.
 ## Включается на сенсорных устройствах или флагом --touch (мышь тогда работает как палец).
 
 const PAD := Rect2(20, 520, 1240, 190)
 const MENU_ROWS := 6
-## Кнопки, которые есть при игре на гитаре (песня и джем).
+## Кнопки, которые есть при игре на гитаре (песня и джем). Струны — столбиком справа на всю высоту от
+## дорожки до низа, в порядке дорожки (верхняя сверху), с широкими промежутками, чтобы палец не задевал
+## соседнюю; бой — провести пальцем сверху вниз. Лады, бенд и позиция — внизу слева, под дорожкой.
 const GUITAR := [
-	{"kind": "hold", "action": "fret_1", "fret": "1", "label": "1", "rect": Rect2(20, 520, 142, 190)},
-	{"kind": "hold", "action": "fret_2", "fret": "2", "label": "2", "rect": Rect2(172, 520, 142, 190)},
-	{"kind": "hold", "action": "fret_3", "fret": "3", "label": "3", "rect": Rect2(324, 520, 142, 190)},
-	{"kind": "hold", "action": "fret_4", "fret": "4", "label": "4", "rect": Rect2(476, 520, 142, 190)},
-	{"kind": "hold", "action": "bend", "bend": true, "label": "бенд", "rect": Rect2(636, 520, 240, 90)},
-	{"kind": "tap", "action": "position_down", "label": "← поз.", "rect": Rect2(636, 620, 115, 90)},
-	{"kind": "tap", "action": "position_up", "label": "поз. →", "rect": Rect2(761, 620, 115, 90)},
-	{"kind": "tap", "action": "strike_high", "string": "high", "label": "верхняя", "rect": Rect2(894, 520, 366, 60)},
-	{"kind": "tap", "action": "strike_mid", "string": "mid", "label": "средняя", "rect": Rect2(894, 584, 366, 60)},
-	{"kind": "tap", "action": "strike_low", "string": "low", "label": "нижняя", "rect": Rect2(894, 648, 366, 62)},
+	{"kind": "hold", "action": "fret_1", "fret": "1", "label": "1", "rect": Rect2(20, 520, 152, 190)},
+	{"kind": "hold", "action": "fret_2", "fret": "2", "label": "2", "rect": Rect2(182, 520, 152, 190)},
+	{"kind": "hold", "action": "fret_3", "fret": "3", "label": "3", "rect": Rect2(344, 520, 152, 190)},
+	{"kind": "hold", "action": "fret_4", "fret": "4", "label": "4", "rect": Rect2(506, 520, 152, 190)},
+	{"kind": "hold", "action": "bend", "bend": true, "label": "бенд", "rect": Rect2(676, 520, 304, 90)},
+	{"kind": "tap", "action": "position_down", "label": "← поз", "rect": Rect2(676, 620, 146, 90)},
+	{"kind": "tap", "action": "position_up", "label": "поз →", "rect": Rect2(834, 620, 146, 90)},
+	{"kind": "tap", "action": "strike_high", "string": "high", "label": "верхняя", "rect": Rect2(996, 262, 264, 140)},
+	{"kind": "tap", "action": "strike_mid", "string": "mid", "label": "средняя", "rect": Rect2(996, 416, 264, 140)},
+	{"kind": "tap", "action": "strike_low", "string": "low", "label": "нижняя", "rect": Rect2(996, 570, 264, 140)},
 ]
 const BACK := {"kind": "tap", "action": "quit", "label": "← меню", "rect": Rect2(1160, 8, 110, 38)}
 ## Кнопки режима сверх гитары.
@@ -45,7 +47,8 @@ const EXTRA := {
 		{"kind": "tap", "action": "key_down", "label": "Тон −", "rect": Rect2(300, 154, 92, 40)},
 		{"kind": "tap", "action": "key_up", "label": "Тон +", "rect": Rect2(398, 154, 92, 40)},
 		{"kind": "tap", "action": "scale", "label": "Гамма", "rect": Rect2(498, 154, 190, 40)},
-		{"kind": "tap", "action": "backing", "label": "Подложка", "rect": Rect2(300, 200, 388, 40)},
+		{"kind": "tap", "action": "backing", "label": "Подложка", "rect": Rect2(300, 200, 190, 40)},
+		{"kind": "tap", "action": "tap_tempo", "label": "Тап-темп", "rect": Rect2(498, 200, 190, 40)},
 	],
 }
 

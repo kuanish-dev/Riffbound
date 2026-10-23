@@ -45,7 +45,7 @@ func _plan(notes: Array) -> void:
 	var position := _position
 	for i in notes.size():
 		var note: Dictionary = notes[i]
-		var t := int(note["slot"]) * Timing.SLOT_LEN
+		var t := int(note["slot"]) * Timing.slot_len()
 		var fret := String(note["fret"])
 		if int(note["pos"]) != position:
 			_add(t - SHIFT_AHEAD, {"kind": "position", "to": int(note["pos"])})
@@ -59,7 +59,7 @@ func _plan(notes: Array) -> void:
 			_add(t, {"kind": "strike", "string": note["string"]})
 		if note["bend"]:
 			_add(t + 0.02, {"kind": "bend", "on": true})
-			_add((int(note["slot"]) + int(note["len"])) * Timing.SLOT_LEN - 0.04, {"kind": "bend", "on": false})
+			_add((int(note["slot"]) + int(note["len"])) * Timing.slot_len() - 0.04, {"kind": "bend", "on": false})
 	_actions.sort_custom(_earlier)
 
 

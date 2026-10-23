@@ -3,7 +3,8 @@ extends Node2D
 ## Интерфейс. Посередине — дорожка-таб: три струны (верхняя сверху), ноты песни едут справа к линии
 ## удара с номером лада, легато (h/p), бендом (b) и полосой удержания. Над ней — сцена (StageView),
 ## под ней — лады, струны, бенд и позиция. Меню — список песен с рекордами, итог — после песни,
-## джем — строй, карта грифа и лупер. Всплывающие сообщения — toast.
+## джем — строй, подложка, карта грифа и лупер. Всплывающие сообщения — toast. Струна после удара
+## дрожит (VIBRATO), свечение рисует FxLayer.
 
 const PLAYED_MAX := 48
 const TOAST_TIME := 3.5
@@ -15,6 +16,8 @@ const STRING_LINE := Color(0.78, 0.74, 0.66, 0.45)
 const LANE := {"high": -1.0, "mid": 0.0, "low": 1.0}   ## струна на дорожке, в шагах LANE_GAP
 const NOTE_R := 15.0
 const LABELS_W := 100.0                                ## слева на дорожке — подписи струн
+## Дрожь струны после удара: амплитуда (px), сколько секунд гаснет, волн на длину струны, скорость.
+const VIBRATO := {"amp": 5.0, "decay": 0.9, "waves": 9.0, "speed": 70.0}
 ## Подсказки внизу по режиму; {offset} — задержка удара в мс.
 const FOOTER := {
 	"menu": ["↑ ↓ — выбрать песню   Enter — играть   Tab — джем   Esc — выход",
@@ -24,7 +27,7 @@ const FOOTER := {
 	"song": ["Держи лад — нота тянется. Лад выше, пока звенит, — хаммер-он; сними верхний — пулл-офф. Пробел — бенд",
 		"Q/E — позиция   [ ] — задержка удара {offset} мс   Esc — к песням"],
 	"jam": ["R — записать луп   Backspace — стереть слой   Enter — последний слой в песни   − — удалить свою песню",
-		"M — экспорт слоёв в MIDI (Документы/Riffbound)   Esc — к песням"],
+		"V — подложка (стили, треки, свои — в Документы/Riffbound)   T — тап-темп   M — MIDI туда же   Esc — к песням"],
 }
 
 var _played: Array[Dictionary] = []    ## джем: {note, string, t, legato}
@@ -84,14 +87,14 @@ func _draw() -> void:
 
 func _draw_top_menu() -> void:
 	_top_panel()
-	Glyph.text(self, Vector2(20, 36), "RIFFBOUND", 24, GOLD)
-	Glyph.text(self, Vector2(170, 35), "симулятор гитары на клавиатуре", 18, DIM)
+	Glyph.title(self, Vector2(20, 37), "RIFFBOUND", 26, GOLD)
+	Glyph.text(self, Vector2(200, 35), "симулятор гитары на клавиатуре", 18, DIM)
 
 
 func _draw_top_song() -> void:
 	var performance := Game.performance
 	_top_panel()
-	Glyph.text(self, Vector2(20, 35), String(performance.song.get("name", "")), 22, Color.WHITE)
+	Glyph.title(self, Vector2(20, 36), String(performance.song.get("name", "")), 21, Color.WHITE)
 	var progress := clampf(Game.conductor.now() / maxf(performance.end_time, 0.001), 0.0, 1.0)
 	var bar := Rect2(260, 20, 300, 14)
 	draw_rect(bar, Color(0.18, 0.16, 0.24))
@@ -109,12 +112,13 @@ func _draw_top_results() -> void:
 func _draw_top_jam() -> void:
 	var tuning := Game.tuning
 	_top_panel()
-	Glyph.text(self, Vector2(20, 35), "ДЖЕМ", 22, GOLD)
-	var backing: String = Synth.BACKINGS[Synth.backing_index(Game.jam_backing)]["name"]
-	Glyph.text(self, Vector2(110, 35), "%s   ·   подложка: %s   ·   позиция %d" % [tuning.title(), backing, tuning.position],
-		20, Color.WHITE)
+	Glyph.title(self, Vector2(20, 36), "ДЖЕМ", 22, GOLD)
+	var music := Game.music
+	var bpm := float(music.get("bpm", 0.0))
+	Glyph.text(self, Vector2(110, 34), "%s   ·   %s · %s" % [tuning.title(), music.get("name", ""),
+		"%s bpm" % snappedf(bpm, 0.1) if bpm > 0.0 else "темп? (T)"], 19, Color.WHITE)
 	if not Game.touch:
-		Glyph.text(self, Vector2(860, 34), "Z/X тональность · C гамма · V подложка · Q/E позиция", 14, DIM)
+		Glyph.text(self, Vector2(880, 34), "Z/X тон · C гамма · V подложка · T тап · Q/E позиция", 14, DIM)
 
 
 func _top_panel() -> void:
@@ -123,22 +127,27 @@ func _top_panel() -> void:
 
 # --- дорожка ----------------------------------------------------------------
 
-func _slot_x(slot: float, slot_now: float) -> float:
+static func slot_x(slot: float, slot_now: float) -> float:
 	return Layout.HIT_X + (slot - slot_now) * Layout.SLOT_PX
 
 
-func _lane_y(string: String) -> float:
+## Дорожка: на сенсоре в песне и джеме уже — справа от неё столбик струн (TouchPad).
+func _highway() -> Rect2:
+	return Layout.HIGHWAY_TOUCH if Game.touch and Game.state in ["song", "jam"] else Layout.HIGHWAY
+
+
+static func lane_y(string: String) -> float:
 	return Layout.HIGHWAY.get_center().y + float(LANE.get(string, 0.0)) * Layout.LANE_GAP
 
 
 ## Струны, такты и линия удара — общие для песни и джема.
 func _draw_strings(slot_now: float) -> void:
-	var rect := Layout.HIGHWAY
+	var rect := _highway()
 	draw_rect(rect, PANEL)
 	var first := floori(slot_now - (Layout.HIT_X - rect.position.x) / Layout.SLOT_PX)
 	var last := ceili(slot_now + (rect.end.x - Layout.HIT_X) / Layout.SLOT_PX)
 	for s in range(first, last + 1):
-		var x := _slot_x(s, slot_now)
+		var x := slot_x(s, slot_now)
 		if x < rect.position.x + LABELS_W or x > rect.end.x - 2:
 			continue
 		var bar := posmod(s, Timing.SLOTS_PER_BAR) == 0
@@ -146,26 +155,42 @@ func _draw_strings(slot_now: float) -> void:
 		if bar or beat:
 			draw_line(Vector2(x, rect.position.y + 12), Vector2(x, rect.end.y - 12), Color(1, 1, 1, 0.22 if bar else 0.07), 2.0 if bar else 1.0)
 	for string: String in Notes.STRINGS:
-		var y := _lane_y(string)
+		var y := lane_y(string)
 		# нижняя струна толще, как на гитаре
-		draw_line(Vector2(rect.position.x + LABELS_W, y), Vector2(rect.end.x, y), STRING_LINE, 3.0 - Notes.STRINGS.find(string) * 0.5)
+		_draw_string_line(string, rect.position.x + LABELS_W, rect.end.x, y, 3.0 - Notes.STRINGS.find(string) * 0.5)
 		Glyph.text(self, Vector2(rect.position.x + 10, y + 7), InputConfig.key_label(InputConfig.strike_action(string)), 20, Color.WHITE)
 		Glyph.text(self, Vector2(rect.position.x + 30, y + 6), String(Notes.STRING_NAMES[string]), 12, DIM)
 	draw_line(Vector2(Layout.HIT_X, rect.position.y + 8), Vector2(Layout.HIT_X, rect.end.y - 8), Color(1, 1, 1, 0.85), 3.0)
 
 
+## Струна от x0 до x1: после удара дрожит стоячей волной (концы на месте), дрожь гаснет за VIBRATO.decay.
+func _draw_string_line(string: String, x0: float, x1: float, y: float, width: float) -> void:
+	var t := float(_strike_flash.get(string, 9.0))
+	var amp := float(VIBRATO["amp"]) * maxf(0.0, 1.0 - t / float(VIBRATO["decay"]))
+	if amp <= 0.05:
+		draw_line(Vector2(x0, y), Vector2(x1, y), STRING_LINE, width)
+		return
+	var points := PackedVector2Array()
+	var steps := 96
+	for i in steps + 1:
+		var k := float(i) / steps
+		var wave := sin(k * TAU * float(VIBRATO["waves"]) - t * float(VIBRATO["speed"]))
+		points.append(Vector2(lerpf(x0, x1, k), y + amp * sin(k * PI) * wave))
+	draw_polyline(points, STRING_LINE.lerp(Color(1.0, 0.92, 0.7, 0.9), amp / float(VIBRATO["amp"])), width, true)
+
+
 func _draw_highway_song() -> void:
 	var performance := Game.performance
-	var slot_now := Game.conductor.player_time() / Timing.SLOT_LEN
-	var rect := Layout.HIGHWAY
+	var slot_now := Game.conductor.player_time() / Timing.slot_len()
+	var rect := _highway()
 	_draw_strings(slot_now)
 	var previous := {}                    ## струна → прошлая нота (для дуги легато)
 	var last_pos := -1
 	for note in performance.notes:
 		var string := String(note["string"])
-		var x := _slot_x(float(note["slot"]), slot_now)
-		var end_x := _slot_x(float(note["slot"]) + float(note["len"]), slot_now) - 8.0
-		var y := _lane_y(string)
+		var x := slot_x(float(note["slot"]), slot_now)
+		var end_x := slot_x(float(note["slot"]) + float(note["len"]), slot_now) - 8.0
+		var y := lane_y(string)
 		var visible := end_x > rect.position.x + LABELS_W and x < rect.end.x + NOTE_R
 		var pos := int(note["pos"])
 		if visible and pos != last_pos and last_pos >= 0 and x > rect.position.x + LABELS_W:
@@ -177,7 +202,7 @@ func _draw_highway_song() -> void:
 			if int(note["len"]) > 1:
 				draw_line(Vector2(maxf(x, Layout.HIT_X if note["state"] == "hit" else x), y), Vector2(end_x, y), Color(ink, 0.55), 8.0, true)
 			if note["legato"] and previous.has(string):
-				var from := _slot_x(float(previous[string]["slot"]), slot_now)
+				var from := slot_x(float(previous[string]["slot"]), slot_now)
 				draw_arc(Vector2((from + x) * 0.5, y - NOTE_R), (x - from) * 0.5, PI, TAU, 16, Color(ink, 0.7), 2.0, true)
 				Glyph.text_center(self, x, y - NOTE_R - 6, String(note["tech"]), 14, ink)
 			if note["bend"]:
@@ -203,13 +228,13 @@ func _note_ink(note: Dictionary) -> Color:
 
 
 func _draw_highway_jam() -> void:
-	var slot_now := Game.conductor.player_time() / Timing.SLOT_LEN
+	var slot_now := Game.conductor.player_time() / Timing.slot_len()
 	_draw_strings(slot_now)
 	for item in _played:
-		var x := _slot_x(float(item["t"]) / Timing.SLOT_LEN, slot_now)
-		if x < Layout.HIGHWAY.position.x + LABELS_W:
+		var x := slot_x(float(item["t"]) / Timing.slot_len(), slot_now)
+		if x < _highway().position.x + LABELS_W or x > _highway().end.x:
 			continue
-		Glyph.note(self, Vector2(x, _lane_y(String(item["string"]))), String(item["note"]), NOTE_R * (0.7 if item["legato"] else 1.0))
+		Glyph.note(self, Vector2(x, lane_y(String(item["string"]))), String(item["note"]), NOTE_R * (0.7 if item["legato"] else 1.0))
 
 
 func _draw_highway_menu() -> void:
@@ -241,7 +266,7 @@ func _draw_highway_results() -> void:
 	var result := Game.last_result
 	var performance := Game.performance
 	draw_rect(rect, PANEL)
-	Glyph.text_center(self, 640, rect.position.y + 44, "Песня «%s» сыграна" % performance.song.get("name", ""), 26, Color.WHITE)
+	Glyph.title_center(self, 640, rect.position.y + 46, "Песня «%s» сыграна" % performance.song.get("name", ""), 26, Color.WHITE)
 	_draw_stars(Vector2(640 - 62, rect.position.y + 70), int(result.get("stars", 0)), 12.0)
 	Glyph.text_center(self, 640, rect.position.y + 128, "Счёт %d%s" % [int(result.get("score", 0)),
 		"   ·   новый рекорд!" if result.get("record", false) else ""], 22, GOLD)
@@ -267,9 +292,11 @@ func _draw_touch() -> void:
 			glow = 1.0 if fretboard.bending else 0.0
 		draw_rect(rect, Color(0.16, 0.15, 0.22).lerp(Color(0.85, 0.85, 0.92), glow))
 		draw_rect(rect, GOLD if button.has("bend") else Color(0.6, 0.58, 0.7), false, 2.0)
-		var size := clampi(int(rect.size.y * 0.32), 14, 44)
+		# шрифт по высоте кнопки, но чтобы подпись влезла в ширину
+		var label := String(button["label"])
+		var size := clampi(int(minf(rect.size.y * 0.32, rect.size.x / maxf(1.0, label.length()) * 1.3)), 14, 44)
 		var ink := Color.WHITE.lerp(Color(0.05, 0.05, 0.08), glow)
-		Glyph.text_center(self, rect.get_center().x, rect.get_center().y + size * 0.35, String(button["label"]), size, ink)
+		Glyph.text_center(self, rect.get_center().x, rect.get_center().y + size * 0.35, label, size, ink)
 
 
 func _draw_stars(origin: Vector2, count: int, r := 7.0) -> void:
@@ -346,8 +373,8 @@ func _draw_loop() -> void:
 	draw_rect(rect, PANEL)
 	var bar := Rect2(rect.position + Vector2(110, 12), Vector2(rect.size.x - 124, 16))
 	draw_rect(bar, Color(0.18, 0.16, 0.24))
-	for i in range(1, Synth.BARS):
-		var x := bar.position.x + bar.size.x * i / Synth.BARS
+	for i in range(1, Looper.BARS):
+		var x := bar.position.x + bar.size.x * i / Looper.BARS
 		draw_line(Vector2(x, bar.position.y), Vector2(x, bar.end.y), Color(1, 1, 1, 0.25), 1.0)
 	if looper.recording:
 		draw_rect(Rect2(bar.position, Vector2(bar.size.x * looper.progress(now), bar.size.y)), Color(1, 0.3, 0.3, 0.7))
@@ -370,7 +397,7 @@ func _draw_toast() -> void:
 	if _toast.is_empty() or float(_toast["t"]) > TOAST_TIME:
 		return
 	var alpha := clampf((TOAST_TIME - float(_toast["t"])) / 0.5, 0.0, 1.0)
-	var width := ThemeDB.fallback_font.get_string_size(String(_toast["text"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x
+	var width := Glyph.width(String(_toast["text"]), 17)
 	var box := Rect2(640 - width * 0.5 - 14, 62, width + 28, 30)
 	draw_rect(box, Color(0.05, 0.04, 0.08, 0.85 * alpha))
 	Glyph.text_center(self, 640, 83, String(_toast["text"]), 17, Color(1, 1, 1, alpha))

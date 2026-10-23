@@ -27,6 +27,7 @@ const KEYS := {
 	"key_up": [KEY_X],
 	"scale": [KEY_C],
 	"backing": [KEY_V],
+	"tap_tempo": [KEY_T],
 	"offset_down": [KEY_BRACKETLEFT],
 	"offset_up": [KEY_BRACKETRIGHT],
 	"quit": [KEY_ESCAPE],

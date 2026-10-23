@@ -41,15 +41,15 @@ func start(song_def: Dictionary) -> void:
 	notes = Songs.notes_of(song)
 	tech_total = 0
 	for note in notes:
-		note["t"] = int(note["slot"]) * Timing.SLOT_LEN
-		note["end"] = (int(note["slot"]) + int(note["len"])) * Timing.SLOT_LEN
+		note["t"] = int(note["slot"]) * Timing.slot_len()
+		note["end"] = (int(note["slot"]) + int(note["len"])) * Timing.slot_len()
 		tuning.position = int(note["pos"])
 		note["midi"] = -1 if note["fret"] == Notes.MUTE else tuning.midi(String(note["fret"]), String(note["string"]))
 		note["state"] = "wait"
 		note["tech_ok"] = false
 		if note["legato"] or note["bend"]:
 			tech_total += 1
-	end_time = Songs.end_slot(song) * Timing.SLOT_LEN
+	end_time = Songs.end_slot(song) * Timing.slot_len()
 	score = 0
 	streak = 0
 	best_streak = 0

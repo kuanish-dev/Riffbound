@@ -7,8 +7,6 @@ const FRETS := ["1", "2", "3", "4"]
 const STRINGS := ["low", "mid", "high"]
 const MUTE := "X"
 
-## Глушняк — мёртвый звук открытой струны.
-const MUTED_HZ := {"low": 82.41, "mid": 123.47, "high": 164.81}
 const STRING_NAMES := {"low": "нижняя", "mid": "средняя", "high": "верхняя"}
 
 

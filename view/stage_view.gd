@@ -1,6 +1,6 @@
 class_name StageView
 extends Node2D
-## Сцена: музыкант с гитарой и усилком под светом прожекторов, всё качается в долю.
+## Сцена: музыкант с гитарой и усилком, всё качается в долю (свет и искры — FxLayer «stage»).
 ## Проигрывает факты песни (_on_<факт>): оценку ноты, технику, «не ту ноту», конец песни.
 ## Огоньки усилка — множитель серии.
 
@@ -12,14 +12,12 @@ const WOOD := Color(0.5, 0.17, 0.14)
 const LIGHT := Color(1.0, 0.86, 0.55)
 const SWING := {"low": 1.0, "mid": 0.3, "high": -1.0}   ## куда идёт рука при ударе по струне
 
-var _bits: Array[Dictionary] = []      ## искры: {pos, vel, tint, t, dur, size}
 var _texts: Array[Dictionary] = []     ## всплывающие надписи: {text, pos, tint, t, dur, size}
 var _banner := {}                      ## {text, sub, tint, t}
 var _strum := {"t": 9.0, "string": "low"}
 
 
 func reset() -> void:
-	_bits.clear()
 	_texts.clear()
 	_banner = {"text": "Поехали!", "sub": String(Game.performance.song.get("name", "")) if Game.state == "song" else "джем",
 		"tint": Color.WHITE, "t": 0.0}
@@ -37,16 +35,12 @@ func on_voiced(_note: String, string: String, _corrected: bool) -> void:
 
 func _process(delta: float) -> void:
 	_strum["t"] = float(_strum["t"]) + delta
-	for list: Array[Dictionary] in [_bits, _texts]:
-		var alive: Array[Dictionary] = []
-		for item in list:
-			item["t"] = float(item["t"]) + delta
-			if float(item["t"]) < float(item["dur"]):
-				alive.append(item)
-		list.assign(alive)
-	for bit in _bits:
-		bit["pos"] = (bit["pos"] as Vector2) + (bit["vel"] as Vector2) * delta
-		bit["vel"] = (bit["vel"] as Vector2) * 0.92 + Vector2(0, 260) * delta
+	var alive: Array[Dictionary] = []
+	for item in _texts:
+		item["t"] = float(item["t"]) + delta
+		if float(item["t"]) < float(item["dur"]):
+			alive.append(item)
+	_texts = alive
 	if not _banner.is_empty():
 		_banner["t"] = float(_banner["t"]) + delta
 	queue_redraw()
@@ -57,7 +51,6 @@ func _process(delta: float) -> void:
 func _on_hit(data: Dictionary) -> void:
 	var judgement: Dictionary = data["judgement"]
 	_popup(String(judgement["label"]), Layout.NECK_TIP + Vector2(-40, -48), judgement["tint"], 18, 0.5)
-	_sparks(Layout.NECK_TIP, LIGHT, 8)
 
 
 func _on_miss(_data: Dictionary) -> void:
@@ -70,7 +63,6 @@ func _on_wrong(_data: Dictionary) -> void:
 
 func _on_tech(data: Dictionary) -> void:
 	_popup(String(data["label"]), Layout.NECK_TIP + Vector2(90, -20), GOLD, 22, 0.8)
-	_sparks(Layout.NECK_TIP, GOLD, 16)
 
 
 func _on_finish(data: Dictionary) -> void:
@@ -81,22 +73,12 @@ func _popup(text: String, pos: Vector2, tint: Color, size: int, dur: float) -> v
 	_texts.append({"text": text, "pos": pos, "tint": tint, "t": 0.0, "dur": dur, "size": size})
 
 
-func _sparks(pos: Vector2, tint: Color, count: int) -> void:
-	for i in count:
-		var dir := Vector2.from_angle(randf_range(-PI * 0.9, -PI * 0.1))
-		_bits.append({"pos": pos, "vel": dir * randf_range(120, 300), "tint": tint, "t": 0.0,
-			"dur": randf_range(0.3, 0.6), "size": randf_range(2.0, 4.0)})
-
-
 # --- рисование --------------------------------------------------------------
 
 func _draw() -> void:
 	_draw_backdrop()
 	_draw_amp()
 	_draw_musician()
-	for bit in _bits:
-		var fade := 1.0 - float(bit["t"]) / float(bit["dur"])
-		draw_circle(bit["pos"], float(bit["size"]) * fade, Color(bit["tint"] as Color, fade), true, -1.0, true)
 	for item in _texts:
 		var k := float(item["t"]) / float(item["dur"])
 		var pos: Vector2 = item["pos"] + Vector2(0, -22.0 * k)
@@ -117,10 +99,7 @@ func _pulse() -> float:
 
 func _draw_backdrop() -> void:
 	var pulse := _pulse()
-	for x: float in [260.0, 640.0, 1020.0]:
-		var cone := PackedVector2Array([Vector2(x - 14, Layout.TOP_H), Vector2(x + 14, Layout.TOP_H),
-			Vector2(x + 130, Layout.FLOOR_Y), Vector2(x - 130, Layout.FLOOR_Y)])
-		draw_colored_polygon(cone, Color(1.0, 0.85, 0.65, 0.035 + 0.06 * pulse))
+	draw_rect(Rect2(0, Layout.TOP_H, Layout.SCREEN.x, Layout.FLOOR_Y - Layout.TOP_H), Color(0.045, 0.04, 0.07))
 	draw_rect(Rect2(0, Layout.FLOOR_Y, Layout.SCREEN.x, Layout.STAGE.end.y - Layout.FLOOR_Y), Color(0.1, 0.08, 0.14))
 	draw_line(Vector2(0, Layout.FLOOR_Y), Vector2(Layout.SCREEN.x, Layout.FLOOR_Y), Color(0.55, 0.45, 0.9, 0.35 + 0.5 * pulse), 2.0)
 
@@ -175,7 +154,7 @@ func _draw_banner() -> void:
 		return
 	var t := float(_banner["t"])
 	var alpha := clampf(minf(t / 0.15, (BANNER_TIME - t) / 0.4), 0.0, 1.0)
-	Glyph.text_center(self, 640, 150, String(_banner["text"]), 42, Color(_banner["tint"] as Color, alpha))
+	Glyph.title_center(self, 640, 150, String(_banner["text"]), 42, Color(_banner["tint"] as Color, alpha))
 	Glyph.text_center(self, 640, 182, String(_banner["sub"]), 18, Color(1, 1, 1, 0.75 * alpha))
 
 
@@ -188,4 +167,4 @@ func _draw_count_in() -> void:
 		return
 	var count := ceili(beats_left)
 	var pop := 1.0 - (float(count) - beats_left)
-	Glyph.text_center(self, 640, 220, str(count), int(40 + 16 * pop), Color(1, 1, 1, 0.9))
+	Glyph.title_center(self, 640, 220, str(count), int(40 + 16 * pop), Color(1, 1, 1, 0.9))

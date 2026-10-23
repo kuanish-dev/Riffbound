@@ -11,8 +11,10 @@ var performance: SongJudge
 var state := "menu"
 ## Выбранная в меню песня (индекс в Songs.all()).
 var menu_index := 0
-## Подложка джема (Synth.BACKINGS).
+## Подложка джема: id стиля Backing.STYLES или трека Tracks.
 var jam_backing := "rock"
+## Что сейчас звучит в джеме: {id, name, kind (style/track), bpm, …} — для показа.
+var music := {}
 ## Итог последней песни: score, stars, accuracy, record.
 var last_result := {}
 ## Сенсорное управление (TouchPad) вместо подсказок клавиш.

@@ -4,7 +4,6 @@ extends RefCounted
 ## следующая струна начинается через NOTES_PER_STRING ступеней («три ноты на струну»), а 4-й лад
 ## (мизинец) достаёт первую ноту соседней струны — как на настоящей гитаре, соседние струны перекрываются.
 ## Позиция сдвигает всю сетку на одну струну. Высоты — MIDI-номера.
-## В бою важен только цвет ноты; строй меняет лишь звук.
 
 const SCALES := [
 	{"id": "minor_pentatonic", "name": "минорная пентатоника", "steps": [0, 3, 5, 7, 10]},
@@ -23,7 +22,7 @@ const NOTES_PER_STRING := 3
 const MIDI_MIN := 40            ## E2 — диапазон сэмплов гитары
 const MIDI_MAX := 88            ## E6
 const BEND_SEMITONES := 2.0     ## бенд — на тон вверх
-## Строй боя: подложка боя в ми миноре.
+## Строй по умолчанию — ми, минорная пентатоника (с него начинается джем).
 const SONG := {"key": 4, "scale": "minor_pentatonic"}
 
 var key := 4                    ## индекс в KEY_NAMES
@@ -76,6 +75,13 @@ func shift_position(delta: int) -> bool:
 		return false
 	position += delta
 	return true
+
+
+## Тональность и гамма разом (трек джема): позиция остаётся, если влезает в диапазон.
+func set_key(new_key: int, scale_id: String) -> void:
+	key = new_key
+	scale = scale_index(scale_id)
+	_keep_in_range()
 
 
 func cycle_scale() -> void:

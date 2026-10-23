@@ -4,7 +4,7 @@ extends TestSuite
 
 
 func test_judge_windows() -> void:
-	var s := Timing.SLOT_LEN
+	var s := Timing.slot_len()
 	eq(Timing.judge(s * 3)["slot"], 3, "ближайший слот")
 	eq(Timing.judge(s * 3 + 0.03)["judgement"]["id"], "perfect", "чуть позже")
 	eq(Timing.judge(s * 3 - 0.07)["judgement"]["id"], "good", "заметно раньше")

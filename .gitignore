@@ -8,3 +8,5 @@ build/
 export_credentials.cfg
 # macOS
 .DS_Store
+# Python (tools/build_assets.py)
+__pycache__/

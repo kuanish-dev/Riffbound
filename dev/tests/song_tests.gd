@@ -30,7 +30,7 @@ func test_built_in_songs_are_playable() -> void:
 		for note in notes:
 			var string := String(note["string"])
 			if note["legato"]:
-				var ok := last.has(string) and (int(note["slot"]) - int(last[string]["slot"])) * Timing.SLOT_LEN <= Fretboard.LEGATO_WINDOW
+				var ok := last.has(string) and (int(note["slot"]) - int(last[string]["slot"])) * Timing.slot_len() <= Fretboard.LEGATO_WINDOW
 				check(ok, "%s: легато в слоте %d на струне %s успевает" % [song["id"], note["slot"], string])
 			last[string] = note
 			var tuning := Tuning.new()
@@ -126,4 +126,4 @@ func _perf(bars: Array) -> SongJudge:
 
 
 func _t(slot: int) -> float:
-	return slot * Timing.SLOT_LEN
+	return slot * Timing.slot_len()

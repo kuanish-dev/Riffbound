@@ -4,7 +4,8 @@ class_name DevTools
 
 ## Каждый метод test_* каждого набора: before_each() → тест → итог; в конце набора — after_all().
 static func run_tests(main: Node) -> void:
-	var suites: Array[TestSuite] = [CoreTests.new(), InstrumentTests.new(), SongTests.new(), JamTests.new(), TouchTests.new()]
+	var suites: Array[TestSuite] = [CoreTests.new(), InstrumentTests.new(), SongTests.new(), JamTests.new(), TouchTests.new(),
+		MusicTests.new()]
 	var total := 0
 	var failed := 0
 	for suite in suites:

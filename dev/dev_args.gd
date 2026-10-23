@@ -7,6 +7,7 @@ class_name DevArgs
 ##   --song=<N>           песня из списка (с 1) для --play и снимка
 ##   --play               сразу играть песню, без меню
 ##   --jam                сразу джем
+##   --backing=<id>       подложка джема: стиль Backing.STYLES или трек Tracks (rock, funked_up, user:<файл>…)
 ##   --touch              сенсорное управление на компьютере (мышь — как палец)
 
 static var values: Dictionary = {}

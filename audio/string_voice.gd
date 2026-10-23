@@ -2,12 +2,12 @@ class_name StringVoice
 extends Node
 ## Одна струна: одна нота за раз (аккорд-двузвучие — несколько голосов этой струны).
 ## Нота звенит, пока её не заглушат (mute — короткий спад) или не затухнет сама.
-## Легато и бенд меняют высоту звучащего сэмпла (pitch_scale), не начиная ноту заново.
+## Высота — подтяжка ближайшего сэмпла (pitch_scale); легато и бенд меняют её, не начиная ноту заново.
 ## Команды — события гитары {kind, string, midis, amount}: pluck, slur, mute, dead, bend.
 
 const RELEASE := 0.06       ## секунд спада при глушении
 const BEND_SPEED := 16.0    ## полутонов в секунду — с такой скоростью тянется бенд
-const VOLUME_DB := -4.0
+const VOLUME_DB := -1.0
 
 var bank: SampleBank
 var silent := false         ## без звукового вывода (headless) голоса не создаются
@@ -22,13 +22,17 @@ var _fade := -1.0           ## > 0 — идёт спад после глушен
 
 func pluck(event: Dictionary) -> void:
 	var streams: Array = []
+	var samples: Array = []
 	for midi: int in event["midis"]:
-		streams.append(bank.notes[clampi(midi, Tuning.MIDI_MIN, Tuning.MIDI_MAX)])
-	_start(streams, event["midis"])
+		streams.append(bank.note(midi))
+		samples.append(SampleBank.sample_midi(midi))
+	_start(streams, event["midis"], samples)
 
 
 func dead(event: Dictionary) -> void:
-	_start([bank.dead[event["string"]]], [])
+	_start([bank.dead()], [], [])
+	if not silent:
+		_players[0].pitch_scale = float(SampleBank.DEAD_PITCH[event["string"]])
 
 
 ## Легато: звучащая струна переходит на новую ноту без нового щипка.
@@ -77,11 +81,11 @@ func _process(delta: float) -> void:
 			silence()
 
 
-func _start(streams: Array, midis: Array) -> void:
+func _start(streams: Array, midis: Array, samples: Array) -> void:
 	if silent:
 		return
 	silence()
-	_sample_midis = midis.duplicate()
+	_sample_midis = samples.duplicate()
 	_midis = midis.duplicate()
 	_active = streams.size()
 	for i in _active:
