@@ -4,7 +4,8 @@ class_name DevTools
 
 ## Жесты пальцами для снимков (--gesture, с --touch): [время (с, часы игры), палец, что, кнопка, сдвиг от её
 ## середины]. press / drag / lift — касание, ведение, отпускание; wiggle — с этого времени палец качается вокруг
-## сдвига на ±WIGGLE px (вибрато).
+## сдвига на ±WIGGLE px (вибрато), пока не придёт его следующий шаг. demo — фраза для GIF в README
+## (слайд, бенд, вибрато, бой; запись: --write-movie, см. CLAUDE.md).
 const GESTURES := {
 	"bend": [[1.0, 0, "press", "fret_2", Vector2.ZERO], [1.2, 1, "press", "strike_mid", Vector2(-80, 0)],
 		[1.3, 1, "drag", "strike_mid", Vector2(-40, 0)], [1.4, 1, "drag", "strike_mid", Vector2(10, 0)],
@@ -14,6 +15,18 @@ const GESTURES := {
 	"slide": [[1.0, 0, "press", "fret_1", Vector2.ZERO], [1.2, 1, "press", "strike_low", Vector2.ZERO],
 		[1.3, 1, "lift", "strike_low", Vector2.ZERO], [1.5, 0, "drag", "fret_2", Vector2(-40, 0)],
 		[1.55, 0, "drag", "fret_3", Vector2(-40, 0)]],
+	"demo": [[0.8, 0, "press", "fret_1", Vector2.ZERO], [1.0, 1, "press", "strike_low", Vector2.ZERO],
+		[1.15, 1, "lift", "strike_low", Vector2.ZERO], [1.5, 0, "drag", "fret_2", Vector2(-40, 0)],
+		[1.6, 0, "drag", "fret_3", Vector2(-40, 0)], [2.2, 1, "press", "strike_mid", Vector2.ZERO],
+		[2.35, 1, "lift", "strike_mid", Vector2.ZERO], [2.6, 0, "drag", "fret_4", Vector2(-40, 0)],
+		[3.2, 0, "lift", "fret_4", Vector2.ZERO], [3.3, 0, "press", "fret_2", Vector2.ZERO],
+		[3.5, 1, "press", "strike_high", Vector2(-80, 0)], [3.6, 1, "drag", "strike_high", Vector2(-40, 0)],
+		[3.7, 1, "drag", "strike_high", Vector2(0, 0)], [3.8, 1, "drag", "strike_high", Vector2(30, 0)],
+		[4.2, 1, "wiggle", "strike_high", Vector2(30, 0)], [5.6, 1, "lift", "strike_high", Vector2(30, 0)],
+		[5.8, 0, "lift", "fret_2", Vector2.ZERO], [6.0, 0, "press", "fret_1", Vector2.ZERO],
+		[6.2, 1, "press", "strike_high", Vector2.ZERO], [6.3, 1, "drag", "strike_mid", Vector2.ZERO],
+		[6.4, 1, "drag", "strike_low", Vector2.ZERO], [6.5, 1, "lift", "strike_low", Vector2.ZERO],
+		[7.2, 0, "lift", "fret_1", Vector2.ZERO]],
 }
 const WIGGLE := {"px": 22.0, "hz": 6.0}
 
@@ -54,6 +67,8 @@ static func _gesture_tick(pad: TouchPad, steps: Array, done: Dictionary, now: fl
 		var pos := _button_center(String(step[3])) + (step[4] as Vector2)
 		var op := String(step[2])
 		if op == "wiggle":
+			if _next_step_due(steps, i, now):
+				continue
 			pos.x += float(WIGGLE["px"]) * sin(now * TAU * float(WIGGLE["hz"]))
 		else:
 			done[i] = true
@@ -69,6 +84,14 @@ static func _gesture_tick(pad: TouchPad, steps: Array, done: Dictionary, now: fl
 			event = touch
 		event.set("index", int(step[1]))
 		pad._unhandled_input(event)
+
+
+## Пришло ли время следующего шага того же пальца (тогда покачивание кончилось).
+static func _next_step_due(steps: Array, i: int, now: float) -> bool:
+	for j in range(i + 1, steps.size()):
+		if steps[j][1] == steps[i][1]:
+			return now >= float(steps[j][0])
+	return false
 
 
 static func _button_center(action: String) -> Vector2:

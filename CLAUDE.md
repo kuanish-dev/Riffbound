@@ -94,6 +94,10 @@ perl -e 'alarm 150; exec @ARGV' godot --path . -- --screenshot=<png> --song=4 --
 perl -e 'alarm 150; exec @ARGV' godot --path . -- --screenshot=<png> --jam --backing=funked_up --at=6
 perl -e 'alarm 150; exec @ARGV' godot --path . -- --screenshot=<png> --jam --touch --gesture=vibrato --at=2.3   # жесты: DevTools.GESTURES
 perl -e 'alarm 120; exec @ARGV' godot --path . -- --tones                  # громкость звуков гитар (динамики молчат)
+# GIF для README (docs/media; docs/.gdignore прячет папку от Godot и APK): кадры — Movie Maker Godot, GIF — ffmpeg
+godot --path . --write-movie <папка>/song.avi --fixed-fps 30 -- --screenshot=<png> --song=5 --touch --autoplay --at=18
+godot --path . --write-movie <папка>/jam.avi --fixed-fps 30 -- --screenshot=<png> --jam --touch --backing=rock_theme_3 --gesture=demo --at=7.6
+ffmpeg -ss 5.5 -t 9.5 -i song.avi -vf "fps=10,scale=640:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle" -loop 0 docs/media/gameplay.gif
 python -I tools/build_assets.py <папка_загрузок> [tracks]     # assets/ (numpy, scipy, soundfile, librosa, ffmpeg)
 python -I tools/build_assets.py --chords                       # аккорды тактов встроенных треков → Tracks.BUILT_IN
 # APK (пресет export_presets.cfg «Android», шаблоны 4.7.2, SDK/Java прописаны в editor_settings-4.7.tres):
