@@ -1,9 +1,10 @@
 class_name FxLayer
 extends Node2D
 ## Свет поверх картинки — смешивание сложением, текстуры Kenney Particle Pack (CC0, см. CREDITS.md).
-## Два слоя: «stage» — под интерфейсом (лучи прожекторов и пятна света в долю, искры у грифа),
+## Два слоя: «stage» — под интерфейсом (искры и молнии у головы грифа),
 ## «top» — над дорожкой (вспышка на линии удара, ореол у подходящих нот). Слой рисует _draw_<слой>.
-## Проигрывает удары по струнам (on_voiced) и факты песни (_on_<факт>).
+## Проигрывает удары по струнам (on_voiced), факты песни (_on_<факт>) и смену ранга стиля (on_ranked):
+## вспышка на весь экран цвета ранга, сноп искр; чем выше стиль, тем больше искр.
 
 const TEX := {
 	"flash": preload("res://assets/fx/flare_01.png"),
@@ -11,17 +12,14 @@ const TEX := {
 	"star": preload("res://assets/fx/star_05.png"),
 	"bolt": preload("res://assets/fx/spark_04.png"),
 	"ring": preload("res://assets/fx/light_03.png"),
-	"smoke": preload("res://assets/fx/smoke_03.png"),
 }
-const SPOTS := [
-	{"x": 260.0, "tint": Color(1.0, 0.75, 0.45)},
-	{"x": 640.0, "tint": Color(0.6, 0.55, 1.0)},
-	{"x": 1020.0, "tint": Color(1.0, 0.45, 0.6)},
-]
 const GLOW_SLOTS := 3.0                ## за сколько восьмых до линии удара нота начинает светиться
+const FLASH := {"up": 0.24, "down": 0.16, "time": 0.28}
+const DOWN := Color(1.0, 0.2, 0.15)
 
 var layer := "top"
 var _items: Array[Dictionary] = []     ## вспышки и искры: {tex, pos, vel, size, grow, tint, t, dur, spin}
+var _flash := {}                       ## вспышка экрана: {tint, alpha, t}
 
 
 func _init(which := "top") -> void:
@@ -48,19 +46,27 @@ func on_fact(kind: String, data: Dictionary) -> void:
 		call(method, data)
 
 
+func on_ranked(rank: int, up: bool) -> void:
+	var tint: Color = StyleMeter.RANKS[rank]["tint"] if up else DOWN
+	if layer == "top":
+		_flash = {"tint": tint, "alpha": FLASH["up" if up else "down"], "t": 0.0}
+	elif up:
+		_burst(StageView.neck_tip(), tint, 10 + rank * 4)
+
+
 func _on_hit(data: Dictionary) -> void:
 	var tint: Color = data["judgement"]["tint"]
 	if layer == "top":
 		var at := Vector2(Layout.HIT_X, Hud.lane_y(String(data["note"]["string"])))
 		_spawn("glow", at, Vector2.ZERO, 50.0, 90.0, Color(tint, 0.8), 0.25)
 	else:
-		_burst(Layout.NECK_TIP, tint, 7)
+		_burst(StageView.neck_tip(), tint, 6 + 2 * _rank())
 
 
 func _on_tech(_data: Dictionary) -> void:
 	if layer == "stage":
-		_spawn("bolt", Layout.NECK_TIP + Vector2(30, -10), Vector2.ZERO, 120.0, 40.0, Color(0.7, 0.8, 1.0, 0.9), 0.35)
-		_burst(Layout.NECK_TIP, Color(1.0, 0.82, 0.3), 14)
+		_spawn("bolt", StageView.neck_tip() + Vector2(30, -10), Vector2.ZERO, 120.0, 40.0, Color(0.7, 0.8, 1.0, 0.9), 0.35)
+		_burst(StageView.neck_tip(), Color(1.0, 0.82, 0.3), 14)
 
 
 func _on_miss(data: Dictionary) -> void:
@@ -89,6 +95,8 @@ func _process(delta: float) -> void:
 		if float(item["t"]) < float(item["dur"]):
 			alive.append(item)
 	_items = alive
+	if not _flash.is_empty():
+		_flash["t"] = float(_flash["t"]) + delta
 	queue_redraw()
 
 
@@ -104,24 +112,16 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO)
 
 
-## Сцена: лучи прожекторов сверху и пятна света на полу, вспыхивают в долю.
+## Сцена: свой свет не рисует — неоновый фон у StageView, здесь только искры и молнии (общий _draw).
 func _draw_stage() -> void:
-	var pulse := _pulse()
-	for spot: Dictionary in SPOTS:
-		var x := float(spot["x"])
-		var tint: Color = spot["tint"]
-		var top := Color(tint, 0.10 + 0.16 * pulse)
-		var bottom := Color(tint, 0.0)
-		draw_polygon(PackedVector2Array([Vector2(x - 12, Layout.TOP_H), Vector2(x + 12, Layout.TOP_H),
-			Vector2(x + 140, Layout.FLOOR_Y), Vector2(x - 140, Layout.FLOOR_Y)]), PackedColorArray([top, top, bottom, bottom]))
-		draw_texture_rect(TEX["glow"], Rect2(x - 160, Layout.FLOOR_Y - 28, 320, 56), false, Color(tint, 0.18 + 0.3 * pulse))
-		draw_texture_rect(TEX["glow"], Rect2(x - 22, Layout.TOP_H - 14, 44, 30), false, Color(tint, 0.5 + 0.4 * pulse))
-	draw_texture_rect(TEX["smoke"], Rect2(-60, Layout.FLOOR_Y - 70, 520, 110), false, Color(0.5, 0.45, 0.7, 0.10))
-	draw_texture_rect(TEX["smoke"], Rect2(820, Layout.FLOOR_Y - 60, 520, 100), false, Color(0.5, 0.45, 0.7, 0.08))
+	pass
 
 
-## Дорожка: ореол у нот песни, подходящих к линии удара.
+## Дорожка: ореол у нот песни, подходящих к линии удара; поверх — вспышка экрана от смены ранга.
 func _draw_top() -> void:
+	if not _flash.is_empty() and float(_flash["t"]) < float(FLASH["time"]):
+		var fade := 1.0 - float(_flash["t"]) / float(FLASH["time"])
+		draw_rect(Rect2(Vector2(-40, -40), Layout.SCREEN + Vector2(80, 80)), Color(_flash["tint"] as Color, float(_flash["alpha"]) * fade))
 	if Game.state != "song":
 		return
 	var slot_now := Game.conductor.player_time() / Timing.slot_len()
@@ -138,10 +138,6 @@ func _draw_top() -> void:
 			Color(1.0, 0.85, 0.5, 0.35 * k))
 
 
-## Пульс на каждую долю, сильнее — на первую долю такта.
-func _pulse() -> float:
-	if not Game.conductor.running:
-		return 0.0
-	var beat := Game.conductor.beat_f()
-	var strength := 1.0 if posmod(floori(beat), Timing.BEATS_PER_BAR) == 0 else 0.55
-	return exp(-(beat - floorf(beat)) * 5.0) * strength
+## Ранг стиля песни (вне песни — ноль).
+func _rank() -> int:
+	return Game.style.rank() if Game.state == "song" and Game.style.visible() else 0

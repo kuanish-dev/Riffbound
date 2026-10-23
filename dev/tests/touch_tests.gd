@@ -2,6 +2,8 @@ class_name TouchTests
 extends TestSuite
 ## Сенсорное управление: какие действия ввода рождают касания и скольжения пальцев.
 
+const MIN_BUTTON := Vector2(100, 60)
+
 var pad: TouchPad
 var sent: Array[String] = []
 
@@ -70,21 +72,86 @@ func test_chord_with_two_hands() -> void:
 	eq(sent, ["fret_1 ↓", "strike_low ↓", "strike_low ↑", "strike_mid ↓", "strike_mid ↑"], "лад держится, другой палец бьёт")
 
 
-func test_menu_row_selects_then_starts() -> void:
+func test_menu_row_starts_at_once() -> void:
 	Game.state = "menu"
-	var rows := TouchPad.menu_rows()
-	var second: Rect2 = rows[1]["rect"]
+	var second: Rect2 = TouchPad.list_rows("menu")[1]["rect"]
 	_touch(0, second.get_center(), true)
 	eq(Game.menu_index, 1, "касание выбирает песню")
+	eq(sent, ["start ↓", "start ↑"], "и сразу её играет — одно касание")
+
+
+func test_shop_row_selects_then_takes() -> void:
+	Game.state = "shop"
+	Game.shop_index = 0
+	var second: Rect2 = TouchPad.list_rows("shop")[1]["rect"]
+	_touch(0, second.get_center(), true)
+	eq(Game.shop_index, 1, "в магазине касание выбирает гитару")
+	eq(sent, [], "но не покупает")
 	_touch(0, second.get_center(), false)
 	_touch(0, second.get_center(), true)
-	eq(sent, ["start ↓", "start ↑"], "второе касание — играть")
+	eq(sent, ["start ↓", "start ↑"], "второе касание — взять")
+	Game.shop_index = 0
+
+
+func test_buttons_only_when_needed() -> void:
+	Game.needs = {"bend": false, "positions": false}
+	var actions := TouchPad.buttons("song").map(func(b: Dictionary) -> String: return b.get("action", ""))
+	check(not actions.has("bend") and not actions.has("position_up"), "песне без бенда и позиций — нет этих кнопок")
+	Game.needs = {"bend": true, "positions": true}
+	actions = TouchPad.buttons("song").map(func(b: Dictionary) -> String: return b.get("action", ""))
+	check(actions.has("bend") and actions.has("position_up"), "нужны — есть")
+
+
+func test_jam_more_panel() -> void:
+	Game.more = false
+	var actions := TouchPad.buttons("jam").map(func(b: Dictionary) -> String: return b.get("action", ""))
+	check(actions.has("record") and actions.has("backing") and not actions.has("scale"), "сначала — только запись и музыка")
+	Game.more = true
+	actions = TouchPad.buttons("jam").map(func(b: Dictionary) -> String: return b.get("action", ""))
+	check(actions.has("scale") and actions.has("metronome") and actions.has("tap_tempo"), "«Ещё» открывает остальное")
+	Game.more = false
 
 
 func test_jam_buttons() -> void:
 	Game.state = "jam"
 	eq(TouchPad.button_at("jam", Vector2(395, 82)).get("action"), "record", "кнопка записи в джеме")
 	eq(TouchPad.button_at("song", Vector2(395, 82)), {}, "в песне её нет")
+
+
+func test_metronome_toggle_buttons() -> void:
+	Game.state = "jam"
+	Game.more = true
+	eq(TouchPad.button_at("jam", _center("metronome")).get("lit"), "metronome", "кнопка метронома подсвечивается по Game.metronome")
+	Game.more = false
+
+
+## На сенсоре (а кнопки есть только там) ни одна кнопка не налезает на другую и не меньше пальца:
+## MIN_BUTTON — около 9,5 × 5,7 мм на телефоне с экраном 6,5".
+func test_buttons_fit_a_finger() -> void:
+	var was_touch := Game.touch
+	Game.touch = true
+	for more: bool in [false, true]:
+		Game.more = more
+		for state: String in ["menu", "jam", "song", "shop", "results"]:
+			var buttons := TouchPad.buttons(state)
+			for i in buttons.size():
+				var a: Rect2 = buttons[i]["rect"]
+				var name := String(buttons[i].get("action", "row"))
+				check(a.size.x >= MIN_BUTTON.x and a.size.y >= MIN_BUTTON.y, "%s: «%s» не мельче пальца (%s)" % [state, name, a.size])
+				for j in range(i + 1, buttons.size()):
+					check(not a.intersects(buttons[j]["rect"]), "%s: кнопки «%s» и «%s» не налезают" % [state, name,
+						buttons[j].get("action", "row")])
+	Game.more = false
+	Game.touch = was_touch
+
+
+func test_scroll_reaches_every_song() -> void:
+	Game.state = "menu"
+	Game.menu_index = 0
+	for i in Songs.all().size():
+		_touch(0, _center("menu_down"), true)
+		_touch(0, _center("menu_down"), false)
+	eq(sent.count("menu_down ↓"), Songs.all().size(), "▼ на сенсоре — то же, что стрелка вниз")
 
 
 func _center(action: String) -> Vector2:

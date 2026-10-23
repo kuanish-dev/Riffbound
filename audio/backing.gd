@@ -5,7 +5,8 @@ class_name Backing
 ## из восьми восьмых: «.» — тишина, буква — удар, заглавная — с акцентом. У баса буква — нота аккорда
 ## (BASS_NOTES); аккорд такта — ступень PROGRESSIONS (минор: i–i–VI–VII, как E–E–C–D; мажор: I–I–IV–V),
 ## поэтому ноты гаммы гитары ложатся в гармонию. swing — на сколько восьмой сдвинуть слабые восьмые (шаффл).
-## Метроном — щелчок, собранный кодом.
+## Метроном (metronome) — отдельный луп в такт из щелчков, собранных кодом: Conductor играет его поверх
+## любой подложки.
 
 const RATE := 44100
 const DRUM_DIR := "res://assets/drums/"
@@ -17,7 +18,6 @@ const PARTS := {
 	"hat": {"samples": ["hat_1", "hat_2"], "gain": 0.32},
 	"open": {"samples": ["hat_open"], "gain": 0.3},
 	"crash": {"samples": ["crash"], "gain": 0.42},
-	"click": {"samples": ["click"], "gain": 0.6},
 	"bass": {"gain": 0.75},
 }
 const SOFT := 0.6                    ## строчная буква — тише заглавной
@@ -27,6 +27,8 @@ const BASS_BASE_MIDI := 36           ## C2: бас тоники — BASS_BASE_MI
 const PROGRESSIONS := {"minor": [0, 0, 8, 10], "major": [0, 0, 5, 7]}
 const PEAK := 0.85
 const LOOP_PAD := 64
+## Щелчок метронома: высота первой доли и остальных, затухание, громкость, длина.
+const CLICK := {"accent_hz": 2000.0, "beat_hz": 1300.0, "decay": 160.0, "gain": 0.8, "seconds": 0.03}
 const STYLES := [
 	{"id": "rock", "name": "рок", "swing": 0.0, "order": ["a", "b", "b", "fill"], "bars": {
 		"a": {"crash": "X.......", "kick": "X...X.x.", "snare": "..X...X.", "hat": ".xXxXxXx", "bass": "xxxxxxxx"},
@@ -48,14 +50,11 @@ const STYLES := [
 		"b": {"kick": "XxxxXxxx", "snare": "..X...X.", "open": "x.x.x.x.", "bass": "XxxxXxxx"},
 		"fill": {"kick": "XxxxXxxx", "snare": "..X.XXXX", "bass": "XxxxXxoo"},
 	}},
-	{"id": "click", "name": "метроном", "swing": 0.0, "order": ["a", "a", "a", "a"], "bars": {
-		"a": {"click": "X.x.x.x."},
-	}},
 	{"id": "none", "name": "тишина", "swing": 0.0, "order": ["a", "a", "a", "a"], "bars": {}},
 ]
 
-## Звук → PCM: барабаны по имени, бас по MIDI сэмпла (читаются при первой подложке); щелчок собран кодом.
-static var _pcm := {"click": _click()}
+## Звук → PCM: барабаны по имени, бас по MIDI сэмпла (читаются при первой подложке).
+static var _pcm := {}
 
 
 static func style_of(id: String) -> Dictionary:
@@ -103,6 +102,20 @@ static func render(id: String, key: int, minor: bool) -> AudioStreamWAV:
 
 ## Петля: после конца — ещё LOOP_PAD сэмплов её начала. Микшер Godot на стыке читает за конец петли,
 ## и на Android чтение за конец буфера роняет игру (защитная страница памяти).
+## Метроном: такт щелчков в темпе Timing.bpm, первая доля выше. offset — где в такте сильная доля музыки
+## (пре-ролл трека), чтобы щелчок совпал с ней.
+static func metronome(offset: float) -> AudioStreamWAV:
+	var out := PackedFloat32Array()
+	out.resize(roundi(Timing.bar_len() * RATE))
+	for beat in Timing.BEATS_PER_BAR:
+		var hz := float(CLICK["accent_hz"] if beat == 0 else CLICK["beat_hz"])
+		var at := roundi((offset + beat * Timing.beat_len()) * RATE)
+		for i in int(float(CLICK["seconds"]) * RATE):
+			var t := float(i) / RATE
+			out[(at + i) % out.size()] += sin(TAU * hz * t) * exp(-t * float(CLICK["decay"])) * float(CLICK["gain"])
+	return to_wav(out, true)
+
+
 static func to_wav(buf: PackedFloat32Array, loop := false) -> AudioStreamWAV:
 	var bytes := PackedByteArray()
 	var pad := LOOP_PAD if loop else 0
@@ -174,13 +187,4 @@ static func _decode(wav: AudioStreamWAV) -> PackedFloat32Array:
 	out.resize(data.size() / 2)
 	for i in out.size():
 		out[i] = data.decode_s16(i * 2) / 32768.0
-	return out
-
-
-static func _click() -> PackedFloat32Array:
-	var out := PackedFloat32Array()
-	out.resize(int(0.03 * RATE))
-	for i in out.size():
-		var t := float(i) / RATE
-		out[i] = sin(TAU * 1500.0 * t) * exp(-t * 160.0)
 	return out

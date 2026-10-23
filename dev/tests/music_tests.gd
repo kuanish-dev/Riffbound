@@ -68,6 +68,22 @@ func test_backing_styles() -> void:
 	Timing.bpm = Timing.DEFAULT_BPM
 
 
+func test_metronome_clicks_on_beats() -> void:
+	Timing.bpm = 120.0
+	var wav := Backing.metronome(0.01)
+	eq(wav.loop_end, roundi(Timing.bar_len() * Backing.RATE), "луп метронома — один такт")
+	var peaks: Array[int] = []
+	for beat in Timing.BEATS_PER_BAR:
+		var at := roundi((0.01 + beat * Timing.beat_len()) * Backing.RATE)
+		var top := 0
+		for i in range(at, at + 200):
+			top = maxi(top, absi(wav.data.decode_s16(i * 2)))
+		peaks.append(top)
+	check(peaks.min() > 10000, "щелчок на каждой доле, с учётом сильной доли трека (%s)" % str(peaks))
+	check(absi(wav.data.decode_s16(roundi(0.2 * Backing.RATE) * 2)) < 100, "между долями тихо")
+	Timing.bpm = Timing.DEFAULT_BPM
+
+
 func test_music_choices() -> void:
 	var choices := Main.music_choices()
 	eq(choices.size(), Backing.STYLES.size() + Tracks.all().size(), "стили и треки по кругу")

@@ -4,16 +4,21 @@ extends Node
 ## позиция плеера + время с последнего смешивания − задержка вывода; обороты круга считаются.
 ## Музыка — круг loop_len секунд (целое число тактов) с loop_start файла; offset — где в круге
 ## сильная доля. Петля, равная файлу, крутится сама (loop у потока), длинный файл часы заворачивают сами.
+## Метроном — второй плеер с лупом в такт (set_click): стартует и заворачивается вместе с музыкой, поэтому
+## не расходится с ней; выключенный звучит беззвучно, чтобы включение не сбивало его с доли.
 ## Без звука (headless) часы идут по delta кадра, в тестах время выставляется вручную.
 
 enum Source { AUDIO, DELTA, MANUAL }
 
 const SEEK_LATE := 0.01
+const CLICK_DB := -3.0
+const SILENT_DB := -80.0
 
 var source := Source.AUDIO
 ## Калибровка: на сколько секунд игрок бьёт позже, чем слышит долю.
 var input_offset := 0.0
 var player: AudioStreamPlayer
+var click: AudioStreamPlayer
 var running := false
 var loop_len := 1.0
 var loop_start := 0.0
@@ -31,6 +36,9 @@ func setup() -> void:
 	player = AudioStreamPlayer.new()
 	player.volume_db = -5.0
 	add_child(player)
+	click = AudioStreamPlayer.new()
+	click.volume_db = SILENT_DB
+	add_child(click)
 	if DisplayServer.get_name() == "headless":
 		source = Source.DELTA
 
@@ -49,13 +57,23 @@ func start() -> void:
 	_last_raw = loop_start
 	running = true
 	if source == Source.AUDIO and player != null and player.stream != null:
-		player.play(loop_start)
+		_play()
 
 
 func stop() -> void:
 	running = false
 	if player != null:
 		player.stop()
+		click.stop()
+
+
+## Луп метронома (такт щелчков); играет вместе с музыкой с start().
+func set_click(stream: AudioStream) -> void:
+	click.stream = stream
+
+
+func set_click_on(on: bool) -> void:
+	click.volume_db = CLICK_DB if on else SILENT_DB
 
 
 ## Тесты: часы стоят, время задаётся вручную.
@@ -74,7 +92,14 @@ func _process(delta: float) -> void:
 		# круг короче файла: на конце круга — обратно к его началу (запас — на петлю, равную файлу:
 		# она заворачивается сама, а её длина может быть на долю сэмпла больше круга)
 		if not player.playing or player.get_playback_position() >= loop_start + loop_len + SEEK_LATE:
-			player.play(loop_start)
+			_play()
+
+
+## Музыка с начала круга, метроном — с начала такта, в одном кадре: дальше их сводит один микшер.
+func _play() -> void:
+	player.play(loop_start)
+	if click.stream != null:
+		click.play(0.0)
 
 
 ## Время песни в секундах от сильной доли первого круга, не убывает.
