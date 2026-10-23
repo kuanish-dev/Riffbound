@@ -5,6 +5,8 @@ const BEND_MARK := [Vector2(10, -6), Vector2(22, -26), Vector2(14, -22), Vector2
 const SHIFT_ZONE_ALPHA := 0.14
 const RIFF_ALPHA := 0.07
 const BADGE_SIZE := 20
+const LIFE_R := 7.0
+const LIFE_GAP := 22.0
 
 
 static func draw_top(ci: CanvasItem) -> void:
@@ -16,8 +18,18 @@ static func draw_top(ci: CanvasItem) -> void:
 	var right := 1070.0 if Game.touch else 1250.0
 	var width := Glyph.TITLE.get_string_size(score, HORIZONTAL_ALIGNMENT_LEFT, -1, 26).x
 	Glyph.title(ci, Vector2(right - width, 38), score, 26, Ink.GOLD)
+	_draw_lives(ci, right - width - 24.0)
 	var progress := clampf(Game.conductor.now() / maxf(performance.end_time, 0.001), 0.0, 1.0)
 	ci.draw_rect(Rect2(0, Layout.TOP_H - 3, Layout.SCREEN.x * progress, 3), Ink.GOLD)
+
+
+static func _draw_lives(ci: CanvasItem, right: float) -> void:
+	for i in SongJudge.MISTAKES_TO_FAIL:
+		var center := Vector2(right - i * LIFE_GAP, 28)
+		if i < Game.performance.lives():
+			ci.draw_circle(center, LIFE_R, Ink.RED, true, -1.0, true)
+		else:
+			ci.draw_arc(center, LIFE_R, 0.0, TAU, 20, Ink.DIM, 1.5, true)
 
 
 func _draw() -> void:

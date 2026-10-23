@@ -145,11 +145,6 @@ func _begin_tap(button: Dictionary) -> void:
 
 func _begin_row(row: Dictionary) -> void:
 	var index := int(row["index"])
-	if row.has("level"):
-		Game.set(row["field"], index)
-		Difficulty.choose(String(Songs.all()[index]["id"]), int(row["level"]))
-		row_selected.emit()
-		return
 	var again := int(Game.get(row["field"])) == index
 	Game.set(row["field"], index)
 	if again or row["instant"]:

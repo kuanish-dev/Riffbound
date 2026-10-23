@@ -17,6 +17,8 @@ const GUITAR := [
 const BACK := {"kind": "tap", "action": "quit", "label": "← меню", "rect": Rect2(1090, 2, 186, 64)}
 const EXTRA := {
 	"menu": [
+		{"kind": "tap", "action": "easier", "label": "‹", "rect": Rect2(420, 0, 120, 64)},
+		{"kind": "tap", "action": "harder", "label": "›", "rect": Rect2(740, 0, 120, 64)},
 		{"kind": "tap", "action": "jam", "label": "Джем", "rect": Rect2(20, 548, 610, 162)},
 		{"kind": "tap", "action": "shop", "label": "Магазин", "rect": Rect2(650, 548, 610, 162)},
 	],

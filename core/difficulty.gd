@@ -18,7 +18,6 @@ const LEVELS := [
 		"beats_every": 1, "offbeats_every": 1, "chords": true, "mutes": true, "techniques": true, "auto_hand": false,
 		"window": 1.0, "coins": 1.0, "record": "", "tint": Color(1.0, 0.3, 0.5)},
 ]
-const PASS_STARS := 3
 const FILE := "user://settings.json"
 
 static var chosen := {}
@@ -52,7 +51,14 @@ static func first_unpassed(song_id: String) -> int:
 
 
 static func passed(song_id: String, level: int) -> bool:
-	return int(Songs.best(record_key(song_id, level)).get("stars", 0)) >= PASS_STARS
+	return not Songs.best(record_key(song_id, level)).is_empty()
+
+
+static func best_passed(song_id: String) -> int:
+	for level in range(LEVELS.size() - 1, -1, -1):
+		if passed(song_id, level):
+			return level
+	return -1
 
 
 static func record_key(song_id: String, level: int) -> String:

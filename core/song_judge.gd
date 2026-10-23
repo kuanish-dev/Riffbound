@@ -11,6 +11,7 @@ const STARS := [0.5, 0.7, 0.85, 0.95, 1.0]
 const WRONG_RANGE := 0.3
 const TECH_NAMES := {"h": "Хаммер-он!", "p": "Пулл-офф!", "bend": "Бенд!"}
 const BEND_COUNTS := 0.5
+const MISTAKES_TO_FAIL := 2
 
 var song := {}
 var rules := {}
@@ -24,10 +25,13 @@ var wrongs := 0
 var techs := 0
 var tech_total := 0
 var finished := false
+var failed := false
+var mistakes := 0
 var end_time := 0.0
 var _sounding := {}
 var _bent := {}
 var _last_hit := {}
+var _last_miss_slot := -1
 
 
 func start(song_def: Dictionary, level: Dictionary = Difficulty.LEVELS.back()) -> void:
@@ -61,6 +65,9 @@ func _reset_counters() -> void:
 	wrongs = 0
 	techs = 0
 	finished = false
+	failed = false
+	mistakes = 0
+	_last_miss_slot = -1
 	_sounding.clear()
 	_bent.clear()
 	_last_hit.clear()
@@ -84,7 +91,11 @@ func stars() -> int:
 
 
 func result() -> Dictionary:
-	return {"score": score, "stars": stars(), "accuracy": accuracy()}
+	return {"score": score, "stars": stars(), "accuracy": accuracy(), "failed": failed}
+
+
+func lives() -> int:
+	return MISTAKES_TO_FAIL - mistakes
 
 
 func next_note() -> Dictionary:
@@ -137,12 +148,9 @@ func mute(string: String, time: float) -> void:
 func update(time: float) -> void:
 	if finished:
 		return
-	for note in notes:
-		if note["state"] == "wait" and time > float(note["t"]) + Timing.widest_window():
-			note["state"] = "miss"
-			misses += 1
-			streak = 0
-			fact.emit("miss", {"note": note})
+	_miss_late_notes(time)
+	if failed:
+		return
 	for string: String in _sounding.keys():
 		if time >= float(notes[int(_sounding[string])]["end"]):
 			_release(string, time)
@@ -151,12 +159,35 @@ func update(time: float) -> void:
 		fact.emit("finish", result())
 
 
+func _miss_late_notes(time: float) -> void:
+	for note in notes:
+		if failed:
+			return
+		if note["state"] == "wait" and time > float(note["t"]) + Timing.widest_window():
+			_miss(note)
+
+
+func _miss(note: Dictionary) -> void:
+	note["state"] = "miss"
+	misses += 1
+	streak = 0
+	fact.emit("miss", {"note": note})
+	if int(note["slot"]) != _last_miss_slot:
+		_last_miss_slot = int(note["slot"])
+		mistakes += 1
+	if mistakes >= MISTAKES_TO_FAIL and not failed:
+		failed = true
+		finished = true
+		fact.emit("fail", result())
+
+
 func _hit(index: int, time: float, legato: bool) -> void:
 	var note := notes[index]
 	var judgement := Timing.grade(time - float(note["t"]))
 	note["state"] = "hit"
 	hits += 1
 	streak += 1
+	mistakes = 0
 	best_streak = maxi(best_streak, streak)
 	score += int(judgement["score"]) * multiplier()
 	_sounding[note["string"]] = index

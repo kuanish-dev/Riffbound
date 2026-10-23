@@ -46,6 +46,23 @@ func test_hit_miss_and_score() -> void:
 	eq([p.misses, p.streak], [1, 0], "вторую пропустил — серия оборвана")
 
 
+func test_two_mistakes_in_a_row_fail_the_song() -> void:
+	var p := _perf([{"low": "1 - 2 - 3 - 1 -"}])
+	p.update(_t(LEAD) + 0.5)
+	eq([p.failed, p.lives()], [false, 1], "одна ошибка — ещё жив")
+	p.play("low", 55, _t(LEAD + 2), false)
+	eq(p.lives(), 2, "попал — ошибки прощены")
+	p.update(_t(LEAD + 6) + 0.5)
+	check(p.failed and p.finished, "две ошибки подряд — провал")
+	eq(p.result()["failed"], true, "в итоге — провал")
+
+
+func test_missed_chord_is_one_mistake() -> void:
+	var p := _perf([{"low": "1 - - - 1 - - -", "mid": "1 - - - - - - -"}])
+	p.update(_t(LEAD) + 0.5)
+	eq([p.misses, p.lives(), p.failed], [2, 1, false], "аккорд мимо — одна ошибка")
+
+
 func test_wrong_note_breaks_streak() -> void:
 	var p := _perf([{"low": "1 - 2 - - - - -"}])
 	p.play("low", 52, _t(LEAD), false)

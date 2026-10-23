@@ -76,6 +76,17 @@ func test_each_song_has_its_own_level() -> void:
 	Songs.persist = saved
 
 
+func test_best_passed_level_colors_the_song() -> void:
+	var saved := Songs.persist
+	Songs.persist = false
+	eq(Difficulty.best_passed("не_играли"), -1, "не пройдена — без цвета")
+	Songs.record(Difficulty.record_key("цвет", 1), {"score": 100, "stars": 1, "accuracy": 0.5}, false)
+	eq(Difficulty.best_passed("цвет"), 1, "доиграл — уровень пройден, звёзды не важны")
+	Songs.record(Difficulty.record_key("цвет", 3), {"score": 100, "stars": 5, "accuracy": 1.0}, false)
+	eq(Difficulty.best_passed("цвет"), 3, "цвет — самого сложного пройденного уровня")
+	Songs.persist = saved
+
+
 func test_harder_levels_add_mechanics() -> void:
 	var flags := ["chords", "mutes", "techniques"]
 	for i in range(1, Difficulty.LEVELS.size()):

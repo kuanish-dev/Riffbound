@@ -32,6 +32,11 @@ static func title_center(ci: CanvasItem, center_x: float, y: float, s: String, s
 	ci.draw_string(TITLE, Vector2(center_x - 600.0, y), s, HORIZONTAL_ALIGNMENT_CENTER, 1200.0, size, tint)
 
 
+static func title_right(ci: CanvasItem, right_x: float, y: float, s: String, size: int, tint: Color) -> void:
+	var w := TITLE.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	title(ci, Vector2(right_x - w, y), s, size, tint)
+
+
 static func neon(ci: CanvasItem, center: Vector2, s: String, size: int, tint: Color, angle := 0.0, scale := 1.0) -> void:
 	ci.draw_set_transform(center, angle, Vector2(scale, scale))
 	var base := size * 0.36

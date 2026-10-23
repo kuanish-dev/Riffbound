@@ -8,6 +8,8 @@ static func take(main: Main) -> void:
 	_quiet_and_fast()
 	if DevArgs.has("autoplay"):
 		main.add_child(Autoplay.new())
+	if DevArgs.has("demo-passed"):
+		_pass_levels_for_demo()
 	_open_scene(main)
 	var started := Time.get_ticks_msec()
 	var frames: int = await _wait(main, float(DevArgs.get_str("at", "8")))
@@ -19,6 +21,15 @@ static func take(main: Main) -> void:
 	if Game.metronome:
 		_report_metronome(main.conductor)
 	main.quit()
+
+
+static func _pass_levels_for_demo() -> void:
+	var songs := Songs.all()
+	for i in songs.size():
+		var level := i % (Difficulty.LEVELS.size() + 1) - 1
+		if level >= 0:
+			var result := {"score": 1500 + i * 730, "stars": 5, "accuracy": 1.0}
+			Songs.record(Difficulty.record_key(String(songs[i]["id"]), level), result, false)
 
 
 static func _quiet_and_fast() -> void:

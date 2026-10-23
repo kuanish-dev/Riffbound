@@ -226,31 +226,26 @@ func test_pad_shows_fingers_pull_and_slide() -> void:
 	check(pad.pull_of("mid") == null and pad.points.size() == 1, "палец поднят — не тянет и не виден")
 
 
-func test_level_pip_picks_song_level() -> void:
+func test_arrows_change_selected_song_level() -> void:
 	var was_touch := Game.touch
 	Game.touch = true
 	Game.state = "menu"
-	var saved := Songs.persist
-	Songs.persist = false
-	var pip := _pip(1, 3)
-	_touch(0, (pip["rect"] as Rect2).get_center(), true)
-	_touch(0, (pip["rect"] as Rect2).get_center(), false)
-	eq(sent, [], "уровень выбран, песня не запущена")
-	eq([Game.menu_index, Difficulty.index_for(String(Songs.all()[1]["id"]))], [1, 3], "у этой песни — 4-й уровень")
-	Difficulty.chosen.clear()
-	Songs.persist = saved
+	_touch(0, _button_center("harder"), true)
+	_touch(0, _button_center("harder"), false)
+	eq(sent, ["harder ↓", "harder ↑"], "стрелка сверху — сложнее")
+	check(TouchButtons.at("menu", _button_center("easier"))["action"] == "easier", "и стрелка — легче")
 	Game.touch = was_touch
 
 
-func _pip(index: int, level: int) -> Dictionary:
-	for row: Dictionary in TouchLists.rows("menu"):
-		if row.get("level", -1) == level and row["index"] == index:
-			return row
-	return {}
+func _button_center(action: String) -> Vector2:
+	for button: Dictionary in TouchButtons.EXTRA["menu"]:
+		if button["action"] == action:
+			return (button["rect"] as Rect2).get_center()
+	return Vector2.ZERO
 
 
 func _song_rows() -> Array:
-	return TouchLists.rows("menu").filter(func(r: Dictionary) -> bool: return not r.has("level"))
+	return TouchLists.rows("menu")
 
 
 func _center(action: String) -> Vector2:

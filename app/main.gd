@@ -238,12 +238,19 @@ func _finish_song() -> void:
 	var result := performance.result()
 	result.merge(style.result())
 	Game.last_result = result.duplicate()
+	if performance.failed:
+		feedback.play("fail")
+	else:
+		_reward(result)
+	Game.state = "results"
+	conductor.stop()
+	voices.silence()
+
+
+func _reward(result: Dictionary) -> void:
 	var key := Difficulty.record_key(String(performance.song["id"]), Difficulty.current_index())
 	Game.last_result["record"] = Songs.record(key, result)
 	Game.last_result["coins"] = Shop.reward(result, float(Difficulty.current()["coins"]))
 	feedback.play("finish")
 	if Game.last_result["record"]:
 		feedback.play("record_new")
-	Game.state = "results"
-	conductor.stop()
-	voices.silence()

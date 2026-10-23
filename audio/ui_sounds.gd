@@ -40,6 +40,8 @@ const SOUNDS := {
 	"finish": {"gain": 0.3, "notes": [{"hz": 523.0, "len": 0.12, "wave": "square"}, {"at": 0.12, "hz": 659.0, "len": 0.12, "wave": "square"},
 		{"at": 0.24, "hz": 784.0, "len": 0.12, "wave": "square"}, {"at": 0.36, "hz": 1047.0, "len": 0.45, "wave": "square"},
 		{"at": 0.36, "hz": 784.0, "len": 0.45, "wave": "triangle"}]},
+	"fail": {"gain": 0.3, "notes": [{"hz": 392.0, "len": 0.16, "wave": "square"}, {"at": 0.16, "hz": 330.0, "len": 0.16, "wave": "square"},
+		{"at": 0.32, "hz": 262.0, "len": 0.16, "wave": "square"}, {"at": 0.48, "hz": 196.0, "len": 0.5, "wave": "square"}]},
 	"record_new": {"gain": 0.26, "notes": [{"hz": 2093.0, "len": 0.1, "wave": "sine"}, {"at": 0.09, "hz": 2637.0, "len": 0.1, "wave": "sine"},
 		{"at": 0.18, "hz": 3136.0, "len": 0.25, "wave": "sine"}], "noise": {"len": 0.3, "from": 6000.0, "to": 9000.0, "gain": 0.2}},
 }

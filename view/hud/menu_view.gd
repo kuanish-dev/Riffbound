@@ -1,47 +1,46 @@
 class_name MenuView
 extends HudLayer
 
-const PIP_DARK := Color(0.09, 0.08, 0.13)
+const STRIPE_W := 6.0
+const SCORE_RIGHT := 110.0
 
 
 func _draw() -> void:
 	ListArt.top_panel(self)
 	Glyph.neon_left(self, Vector2(20, 37), "RIFFBOUND", 26, Ink.GOLD)
-	if not Game.touch:
-		var level := Difficulty.current()
-		Glyph.neon(self, Vector2(640, 27), "‹  %s  ›" % level["name"], 22, level["tint"])
+	_draw_level()
 	ListArt.coins(self, Vector2(1110, 35))
 	ListArt.list_frame(self, "menu", "ВЫБЕРИ ПЕСНЮ")
 	var songs := Songs.all()
 	for item: Dictionary in TouchLists.rows("menu"):
-		var song: Dictionary = songs[int(item["index"])]
-		if item.has("level"):
-			_draw_level(item["rect"], String(song["id"]), int(item["level"]))
-		else:
-			_draw_song(song, item["frame"], item["rect"], int(item["index"]) == Game.menu_index)
+		var index := int(item["index"])
+		_draw_song(songs[index], item["rect"], index == Game.menu_index)
 	ListArt.scrollbar(self, "menu")
 
 
-func _draw_song(song: Dictionary, frame: Rect2, name_area: Rect2, selected: bool) -> void:
+func _draw_level() -> void:
+	var level := Difficulty.current()
+	var text := String(level["name"]) if Game.touch else "‹  %s  ›" % level["name"]
+	Glyph.neon(self, Vector2(640, 27), text, 22, level["tint"])
+
+
+func _draw_song(song: Dictionary, frame: Rect2, selected: bool) -> void:
 	ListArt.row(self, frame, selected)
+	var best := Difficulty.best_passed(String(song["id"]))
+	var tint: Color = Color.WHITE if best < 0 else Difficulty.LEVELS[best]["tint"]
 	var big := frame.size.y / 30.0
 	var size := int(clampf(19.0 * big * 0.55, 19.0, 34.0))
-	var mine := String(song["id"]).begins_with("my_")
-	Glyph.text(self, frame.position + Vector2(14 * big * 0.6, frame.size.y * 0.5 + size * 0.36), String(song["name"]), size,
-		Ink.GOLD if mine else Color.WHITE)
+	var baseline := frame.position.y + frame.size.y * 0.5 + size * 0.36
+	Glyph.text(self, Vector2(frame.position.x + 14 * big * 0.6, baseline), String(song["name"]), size, tint)
+	if best >= 0:
+		draw_rect(Rect2(frame.position, Vector2(STRIPE_W, frame.size.y)), tint)
+		Glyph.title_right(self, frame.end.x - SCORE_RIGHT * big * 0.6, baseline, _best_score(song, best), size, tint)
 	if selected or Game.touch:
-		_draw_play_mark(Vector2(name_area.end.x - 24, frame.get_center().y), big, selected)
+		_draw_play_mark(Vector2(frame.end.x - 40, frame.get_center().y), big, selected)
 
 
-func _draw_level(rect: Rect2, song_id: String, level: int) -> void:
-	var tint: Color = Difficulty.LEVELS[level]["tint"]
-	var passed := Difficulty.passed(song_id, level)
-	var chosen := Difficulty.index_for(song_id) == level
-	draw_rect(rect, tint if passed else PIP_DARK)
-	draw_rect(rect, Color.WHITE if chosen else Color(tint, 0.8), false, 3.0 if chosen else 1.5)
-	var size := int(rect.size.y * 0.55)
-	Glyph.title_center(self, rect.get_center().x, rect.get_center().y + size * 0.36, str(level + 1), size,
-		Ink.PANEL if passed else tint)
+static func _best_score(song: Dictionary, level: int) -> String:
+	return "%d" % int(Songs.best(Difficulty.record_key(String(song["id"]), level)).get("score", 0))
 
 
 func _draw_play_mark(center: Vector2, big: float, selected: bool) -> void:
