@@ -213,3 +213,9 @@ godot --path .                                                                  
 python tools/build_assets.py <папка_загрузок>          # tracks/ guitar/ bass/ drums/ kenney/ fonts/
 python tools/build_assets.py <папка_загрузок> tracks   # только треки; печатает темп, такты, тональность
 ```
+
+## Лицензия
+Код Riffbound © 2026 kuanish-dev — под лицензией **GNU GPL v3.0** ([LICENSE](LICENSE)): его можно использовать,
+изучать, менять и распространять, но изменённые версии и сборки на его основе тоже должны быть открыты под GPL-3.0.
+Звуки, треки, текстуры и шрифты — под своими лицензиями (CC0, SIL OFL), авторы — в [CREDITS.md](CREDITS.md).
+Движок Godot — под лицензией MIT.
