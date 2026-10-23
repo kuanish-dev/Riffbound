@@ -1,10 +1,5 @@
 class_name StyleMeter
 extends RefCounted
-## Шкала стиля, как в слэшерах: ранги RANKS от D до SSS. Растёт от точной и разнообразной игры, сама
-## тает (drain — очков в секунду, на высоких рангах быстрее), промах роняет на целый ранг, «не та нота» —
-## на DROP. Повтор того же приёма (струна + лад + техника) среди последних VARIETY даёт лишь REPEAT очков.
-## level — ранг (целая часть) и заполнение его шкалы (дробная). Питается фактами SongJudge (on_fact),
-## время приходит в update(); наружу — сигнал ranked(rank, up) при смене ранга.
 
 signal ranked(rank: int, up: bool)
 
@@ -18,20 +13,25 @@ const RANKS := [
 	{"id": "SSS", "name": "Сногсшибательный стиль!", "size": 1000.0, "drain": 150.0, "coins": 15,
 		"tint": Color(1.0, 0.25, 0.8)},
 ]
-## Очки за факт оценки: попадание — по оценке, техника, удержание — за всю длинную ноту.
 const GAIN := {"perfect": 120.0, "good": 55.0}
 const TECH := 100.0
 const SUSTAIN := 60.0
-## На сколько рангов роняет ошибка.
 const DROP := {"miss": 1.0, "wrong": 0.5}
 const VARIETY := 4
 const REPEAT := 0.4
 
 var level := 0.0
-var best := -1                         ## лучший ранг за песню (−1 — ещё ни разу не набрали)
+var best := -1
 var _recent: Array[String] = []
 var _time := -1.0
 
+
+
+static func rank_of(id: String) -> Dictionary:
+	for rank: Dictionary in RANKS:
+		if rank["id"] == id:
+			return rank
+	return RANKS[0]
 
 func reset() -> void:
 	level = 0.0
@@ -44,12 +44,10 @@ func rank() -> int:
 	return mini(floori(level), RANKS.size() - 1)
 
 
-## Заполнение шкалы текущего ранга (0…1).
 func fill() -> float:
 	return clampf(level - rank(), 0.0, 1.0)
 
 
-## Накал от 0 до 1 — для света и музыканта.
 func heat() -> float:
 	return clampf(level / RANKS.size(), 0.0, 1.0)
 
@@ -64,7 +62,6 @@ func on_fact(kind: String, data: Dictionary) -> void:
 		call(method, data)
 
 
-## Время идёт: шкала тает со скоростью своего ранга.
 func update(time: float) -> void:
 	if _time >= 0.0 and time > _time:
 		var before := rank()
@@ -116,7 +113,6 @@ func _on_wrong(_data: Dictionary) -> void:
 	_drop(float(DROP["wrong"]))
 
 
-## Очки в шкалу: переполнение ранга переносится в следующий, выше SSS — некуда.
 func _add(points: float) -> void:
 	var before := rank() if best >= 0 else -1
 	var top := RANKS.size() - 1
@@ -131,7 +127,6 @@ func _add(points: float) -> void:
 			level = minf(level + points / size, top + 0.9999)
 			points = 0.0
 	best = maxi(best, rank())
-	# первое попадание — шкала появляется, как рост ранга
 	if rank() > before:
 		ranked.emit(rank(), true)
 

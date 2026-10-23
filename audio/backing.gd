@@ -1,18 +1,8 @@
 class_name Backing
-## Подложка из настоящих сэмплов (assets/drums, assets/bass — CC0, см. CREDITS.md): игра сама сводит
-## барабаны, бас и клавиши по аккордам (Harmony) в темпе песни или джема — столько тактов, сколько аккордов:
-## у песни — вся песня по её аккордам, в джеме — круг Harmony.progression тональности строя.
-## Стиль (STYLES) — какие такты в каком порядке («order», по кругу), такт — партии инструментов (PARTS) строкой
-## из восьми восьмых: «.» — тишина, буква — удар, заглавная — с акцентом. У баса буква — ступень аккорда
-## (BASS_NOTES), клавиши играют аккорд (KEYS — в каком регистре), поэтому гармония подложки та же, что у
-## мелодии. swing — на сколько восьмой сдвинуть слабые восьмые (шаффл).
-## Метроном (metronome) — отдельный луп в такт из щелчков, собранных кодом: Conductor играет его поверх
-## любой подложки.
 
 const RATE := 44100
 const DRUM_DIR := "res://assets/drums/"
 const BASS_DIR := "res://assets/bass/"
-## Инструмент: сэмплы (по кругу, чтобы удары не звучали одинаково) или высота (бас) и громкость.
 const PARTS := {
 	"kick": {"samples": ["kick_1", "kick_2"], "gain": 1.0},
 	"snare": {"samples": ["snare_1", "snare_2"], "gain": 0.8},
@@ -22,15 +12,13 @@ const PARTS := {
 	"bass": {"gain": 0.75},
 	"keys": {"keys": true, "gain": 0.2},
 }
-const SOFT := 0.6                    ## строчная буква — тише заглавной
+const SOFT := 0.6
 const BASS_NOTES := {"x": "root", "o": "octave", "f": "fifth"}
-## Клавиши: аккорд в регистре от low (каждая нота — ближайшая выше), нота звенит seconds, гаснет с decay.
 const KEYS := {"low": 55, "seconds": 1.0, "decay": 2.6, "overtone": 0.35}
-const BASS_SAMPLES := [33, 36, 39, 42, 45, 48, 51, 54, 57]   ## A1…A3 через малую терцию
-const BASS_BASE_MIDI := 36           ## C2: бас тоники — BASS_BASE_MIDI + тональность
+const BASS_SAMPLES := [21, 24, 27, 30, 33, 36, 39, 42, 45]
+const BASS_BASE_MIDI := 36
 const PEAK := 0.85
 const LOOP_PAD := 64
-## Щелчок метронома: высота первой доли и остальных, затухание, громкость, длина.
 const CLICK := {"accent_hz": 2000.0, "beat_hz": 1300.0, "decay": 160.0, "gain": 0.8, "seconds": 0.03}
 const STYLES := [
 	{"id": "rock", "name": "рок", "swing": 0.0, "order": ["a", "b", "b", "fill"], "bars": {
@@ -56,8 +44,6 @@ const STYLES := [
 	{"id": "none", "name": "тишина", "swing": 0.0, "order": ["a", "a", "a", "a"], "bars": {}},
 ]
 
-## Звук → PCM: барабаны по имени, бас по MIDI сэмпла, аккорды клавиш (готовятся при первой подложке).
-## Это кэш основного потока; фоновая сборка (Main) передаёт в render свой — словари не делятся между потоками.
 static var _pcm := {}
 
 
@@ -68,7 +54,10 @@ static func style_of(id: String) -> Dictionary:
 	return {}
 
 
-## Играет ли стиль гармонию (бас или клавиши) — тогда его аккорды можно подсвечивать.
+static func is_style(id: String) -> bool:
+	return not style_of(id).is_empty()
+
+
 static func has_harmony(id: String) -> bool:
 	for parts: Dictionary in (style_of(id)["bars"] as Dictionary).values():
 		for part: String in parts:
@@ -77,53 +66,61 @@ static func has_harmony(id: String) -> bool:
 	return false
 
 
-## Подложка стиля id по аккордам bars (такт — «Am» или «Am E») в темпе bpm: столько тактов, сколько аккордов.
-## Хвосты звуков заворачиваются в начало — это петля. Глобального не трогает (темп — параметром, кэш сэмплов —
-## pcm, по умолчанию кэш основного потока), поэтому может собираться в фоновом потоке.
 static func render(id: String, bars: Array, bpm: float, pcm: Variant = null) -> AudioStreamWAV:
-	var cache: Dictionary = _pcm if pcm == null else pcm
-	var style := style_of(id)
-	var slot := 60.0 / bpm / Timing.SLOTS_PER_BEAT * RATE
+	var job := {"style": style_of(id), "bars": bars, "slot": 60.0 / bpm / Timing.SLOTS_PER_BEAT * RATE,
+		"cache": _pcm if pcm == null else pcm, "round_robin": 0}
 	var out := PackedFloat32Array()
-	out.resize(roundi(bars.size() * Timing.SLOTS_PER_BAR * slot))
-	var order: Array = style["order"]
-	var round_robin := 0
+	out.resize(roundi(bars.size() * Timing.SLOTS_PER_BAR * float(job["slot"])))
+	var order: Array = job["style"]["order"]
 	for bar in bars.size():
-		var parts: Dictionary = (style["bars"] as Dictionary).get(order[bar % order.size()], {})
+		var parts: Dictionary = (job["style"]["bars"] as Dictionary).get(order[bar % order.size()], {})
 		for part: String in parts:
-			var spec: Dictionary = PARTS[part]
-			var cells := String(parts[part])
-			for s in cells.length():
-				var cell := cells[s]
-				if cell == ".":
-					continue
-				var swing := float(style["swing"]) if s % Timing.SLOTS_PER_BEAT == 1 else 0.0
-				var at := roundi((bar * Timing.SLOTS_PER_BAR + s + swing) * slot)
-				var gain := float(spec["gain"]) * (1.0 if cell == cell.to_upper() else SOFT)
-				if spec.has("samples"):
-					var names: Array = spec["samples"]
-					_mix(out, at, _drum(String(names[round_robin % names.size()]), cache), gain)
-					round_robin += 1
-					continue
-				var chord := Harmony.parse(Harmony.in_bar(String(bars[bar]), s))
-				if chord.is_empty():
-					continue
-				if spec.has("keys"):
-					_mix(out, at, _key_chord(chord, cache), gain, roundi(_ring(cells, s) * slot))
-				else:
-					var midi := BASS_BASE_MIDI + int(chord["root"]) + Harmony.degree(chord, String(BASS_NOTES[cell.to_lower()]))
-					_mix_bass(out, at, midi, roundi(_ring(cells, s) * slot), gain, cache)
+			_render_part(out, job, bar, PARTS[part], String(parts[part]))
+	return to_wav(_normalized(out), true)
+
+
+static func _render_part(out: PackedFloat32Array, job: Dictionary, bar: int, spec: Dictionary, cells: String) -> void:
+	for s in cells.length():
+		if cells[s] != ".":
+			_render_hit(out, job, bar, s, spec, cells)
+
+
+static func _render_hit(out: PackedFloat32Array, job: Dictionary, bar: int, s: int, spec: Dictionary, cells: String) -> void:
+	var slot := float(job["slot"])
+	var swing := float(job["style"]["swing"]) if s % Timing.SLOTS_PER_BEAT == 1 else 0.0
+	var at := roundi((bar * Timing.SLOTS_PER_BAR + s + swing) * slot)
+	var cell := cells[s]
+	var gain := float(spec["gain"]) * (1.0 if cell == cell.to_upper() else SOFT)
+	if spec.has("samples"):
+		_mix(out, at, _drum(_next_sample(job, spec["samples"]), job["cache"]), gain)
+		return
+	var chord := Harmony.parse(Harmony.in_bar(String(job["bars"][bar]), s))
+	if chord.is_empty():
+		return
+	var ring := roundi(_ring(cells, s) * slot)
+	if spec.has("keys"):
+		_mix(out, at, _key_chord(chord, job["cache"]), gain, ring)
+	else:
+		var midi := BASS_BASE_MIDI + int(chord["root"]) + Harmony.degree(chord, String(BASS_NOTES[cell.to_lower()]))
+		_mix_bass(out, at, midi, ring, gain, job["cache"])
+
+
+static func _next_sample(job: Dictionary, names: Array) -> String:
+	var name := String(names[int(job["round_robin"]) % names.size()])
+	job["round_robin"] = int(job["round_robin"]) + 1
+	return name
+
+
+static func _normalized(out: PackedFloat32Array) -> PackedFloat32Array:
 	var peak := 0.0
 	for v in out:
 		peak = maxf(peak, absf(v))
 	if peak > 0.0:
 		for i in out.size():
 			out[i] *= PEAK / peak
-	return to_wav(out, true)
+	return out
 
 
-## Метроном: такт щелчков в темпе Timing.bpm, первая доля выше. offset — где в такте сильная доля музыки
-## (пре-ролл трека), чтобы щелчок совпал с ней.
 static func metronome(offset: float) -> AudioStreamWAV:
 	var out := PackedFloat32Array()
 	out.resize(roundi(Timing.bar_len() * RATE))
@@ -136,8 +133,6 @@ static func metronome(offset: float) -> AudioStreamWAV:
 	return to_wav(out, true)
 
 
-## Петля: после конца — ещё LOOP_PAD сэмплов её начала. Микшер Godot на стыке читает за конец петли,
-## и на Android чтение за конец буфера роняет игру (защитная страница памяти).
 static func to_wav(buf: PackedFloat32Array, loop := false) -> AudioStreamWAV:
 	var bytes := PackedByteArray()
 	var pad := LOOP_PAD if loop else 0
@@ -156,7 +151,6 @@ static func to_wav(buf: PackedFloat32Array, loop := false) -> AudioStreamWAV:
 	return wav
 
 
-## Сколько восьмых звенит нота баса: до следующей ноты партии или конца такта.
 static func _ring(cells: String, s: int) -> int:
 	var n := 1
 	while s + n < cells.length() and cells[s + n] == ".":
@@ -164,7 +158,6 @@ static func _ring(cells: String, s: int) -> int:
 	return n
 
 
-## Звук в петлю с места at; length — сколько ему звенеть (дальше обрывается с коротким затуханием).
 static func _mix(out: PackedFloat32Array, at: int, sample: PackedFloat32Array, gain: float, length := -1) -> void:
 	var size := out.size()
 	var n := sample.size() if length < 0 else mini(length, sample.size())
@@ -175,7 +168,6 @@ static func _mix(out: PackedFloat32Array, at: int, sample: PackedFloat32Array, g
 		out[(at + i) % size] += sample[i] * gain * (n - i) / fade
 
 
-## Бас: ближайший сэмпл, подтянутый по высоте (линейная интерполяция), с коротким затуханием в конце.
 static func _mix_bass(out: PackedFloat32Array, at: int, midi: int, length: int, gain: float, cache: Dictionary) -> void:
 	var base: int = BASS_SAMPLES[0]
 	for m: int in BASS_SAMPLES:
@@ -195,8 +187,6 @@ static func _mix_bass(out: PackedFloat32Array, at: int, midi: int, length: int, 
 		out[(at + i) % size] += v * gain
 
 
-## Звук аккорда на клавишах (электропиано кодом): у каждой ноты основной тон с гаснущим обертоном,
-## мягкая атака, затухание; каждая нота — ближайшая выше KEYS.low. Звенит до следующего удара партии.
 static func _key_chord(chord: Dictionary, cache: Dictionary) -> PackedFloat32Array:
 	var key := "keys:%s" % [chord["tones"]]
 	if not cache.has(key):
@@ -213,7 +203,6 @@ static func _key_chord(chord: Dictionary, cache: Dictionary) -> PackedFloat32Arr
 	return cache[key]
 
 
-## PCM сэмплов: 16 бит моно, импорт без сжатия (compress/mode=0 в *.wav.import).
 static func _drum(name: String, cache: Dictionary) -> PackedFloat32Array:
 	if not cache.has(name):
 		cache[name] = _decode(load(DRUM_DIR + name + ".wav") as AudioStreamWAV)

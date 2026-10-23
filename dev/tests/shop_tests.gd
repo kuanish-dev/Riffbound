@@ -1,7 +1,5 @@
 class_name ShopTests
 extends TestSuite
-## Магазин гитар: монеты за песни, покупка и выбор скина; скины рисуемы — контуры правильные многоугольники,
-## железо стоит на корпусе. Файлы не пишутся.
 
 
 func before_each() -> void:
@@ -42,15 +40,14 @@ func test_skins_table() -> void:
 	for skin: Dictionary in Shop.SKINS:
 		check(not ids.has(skin["id"]), "%s: id один" % skin["id"])
 		ids[skin["id"]] = true
-		check(GuitarArt.SHAPES.has(skin["shape"]), "%s: форма есть" % skin["id"])
-		check(GuitarArt.PICKUPS.has(skin["pickups"]), "%s: звукосниматели есть" % skin["id"])
+		check(GuitarShapes.SHAPES.has(skin["shape"]), "%s: форма есть" % skin["id"])
+		check(GuitarShapes.PICKUPS.has(skin["pickups"]), "%s: звукосниматели есть" % skin["id"])
 		check(skin.has_all(["body", "hardware", "cover", "board", "neck", "inlay"]), "%s: все цвета" % skin["id"])
 		check(skin.has("edge") or not (skin.get("rings", 0) > 0 or skin.get("neon", false)), "%s: санбёрсту и неону нужен edge" % skin["id"])
 	eq(Shop.SKINS[0]["price"], 0, "первая гитара бесплатная")
 	eq(Shop.SKINS[0]["id"], Shop.FIRST, "она и надета сначала")
 
 
-## Звук каждой гитары собирается: классы эффектов есть, свойства у них такие и есть.
 func test_tones_are_valid() -> void:
 	for skin: Dictionary in Shop.SKINS:
 		check(skin.has("tone") and not String(skin["tone"]["name"]).is_empty(), "%s: у звука есть имя" % skin["id"])
@@ -67,8 +64,8 @@ func test_tones_are_valid() -> void:
 
 
 func test_shapes_are_drawable() -> void:
-	for id: String in GuitarArt.SHAPES:
-		var shape: Dictionary = GuitarArt.SHAPES[id]
+	for id: String in GuitarShapes.SHAPES:
+		var shape: Dictionary = GuitarShapes.SHAPES[id]
 		var body := GuitarArt.outline(id, "body")
 		check(not Geometry2D.triangulate_polygon(body).is_empty(), "%s: корпус — правильный многоугольник" % id)
 		if not (shape["guard"] as Array).is_empty():
@@ -78,10 +75,10 @@ func test_shapes_are_drawable() -> void:
 			check(Geometry2D.is_point_in_polygon(knob, body), "%s: ручка %s на корпусе" % [id, knob])
 	for skin: Dictionary in Shop.SKINS:
 		var body := GuitarArt.outline(String(skin["shape"]), "body")
-		for pickup: Dictionary in GuitarArt.PICKUPS[skin["pickups"]]:
-			var half: Vector2 = GuitarArt.PICKUP_KINDS[pickup["kind"]]["size"] * 0.5
+		for pickup: Dictionary in GuitarShapes.PICKUPS[skin["pickups"]]:
+			var half: Vector2 = GuitarShapes.PICKUP_KINDS[pickup["kind"]]["size"] * 0.5
 			for corner: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
 				var p := Vector2(float(pickup["x"]), 0) + half * corner
 				check(Geometry2D.is_point_in_polygon(p, body), "%s: звукосниматели на корпусе" % skin["id"])
-	for head: String in GuitarArt.HEADS:
+	for head: String in GuitarShapes.HEADS:
 		check(not Geometry2D.triangulate_polygon(GuitarArt.head_outline(head)).is_empty(), "голова %s рисуется" % head)

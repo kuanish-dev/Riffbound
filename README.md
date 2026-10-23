@@ -161,6 +161,19 @@ P — послушать фразу её звуком (или играй на н
 | Ода к радости | Бетховен (ля мажор), самая простая | медленный, 92 |
 | Токката ре минор | Бах: пулл-оффы, хаммер-оны, сдвиг позиции (гармонический минор) | метал, 92 |
 
+**Классика в роке** — песни под живую группу: барабаны, бас, две ритм-гитары и струнные, сведённые из настоящих
+сэмплов (`tools/band.py`), а не собранные игрой на лету. Мелодии, аккорды и аранжировки — `tools/classics.py`:
+из него же собираются табы (`python -I tools/classics.py tabs`) и подложки (`… render <папка_сэмплов>`).
+
+| Песня | Чему учит | Группа, bpm |
+|---|---|---|
+| Лебединое озеро | Чайковский: длинные ноты, си минор — самая простая | баллада, 84 |
+| Симфония №5 | Бетховен: мотив судьбы — три быстрых удара и долгая нота | удары всей группой, 140 |
+| Канон ре мажор | Пахельбель: восьмые и два сдвига позиции | рок, 100 |
+| К Элизе | Бетховен: хроматика (ре# между ре и ми), под подголосок чистой гитарой | тяжёлая баллада, 140 |
+| Турецкий марш | Моцарт: хаммер-оны и пулл-оффы, сдвиги позиции | метал, 150 |
+| Полёт шмеля | Римский-Корсаков: хроматика без остановки, легато | метал, 150 |
+
 Мелодии — классика и народные, давно в общественном достоянии; рок-соло под авторским правом в игру не входят.
 
 ### Стиль (core/style_meter.gd)
@@ -192,7 +205,10 @@ Android SDK из Homebrew (`/opt/homebrew/share/android-commandlinetools`, пр�
 
 ## Устройство
 ```
-app/main.gd        сборка, режимы (COMMANDS), гитара → события {kind, string, fret, pos, midis, amount}
+app/               main.gd — режимы и маршрут команд (COMMANDS); scene_builder.gd — сборка сцены;
+                   music_loader.gd — подложка, метроном, фоновая сборка; jam_session.gd, shop_screen.gd,
+                   common_commands.gd — команды режимов; tap_tempo.gd; guitar_router.gd — гитара → события
+                   {kind, string, fret, pos, midis, amount}; layer_voices.gd — голоса слоёв лупера; feedback.gd — звуки отклика
 core/              логика без показа
   timing.gd        темп (переменный), восьмые, окна оценки
   conductor.gd     часы песни по позиции звука: круг музыки в целых тактах, сильная доля, калибровка
@@ -201,7 +217,8 @@ core/              логика без показа
   tuning.gd        строй: тональность, гаммы, позиции → MIDI
   harmony.gd       аккорды: имя → ноты, аккорд на доле, круг тональности
   notes.gd         лады и струны
-  songs.gd         песни-табы, свои песни из лупа, рекорды
+  songs.gd         песни: все, ноты, аккорды, свои песни из лупа, рекорды
+  song_book.gd     встроенные песни (табы); tab_reader.gd — таб → ноты; layer_song.gd — слой лупера → ноты
   shop.gd          магазин: монеты за песни, скины гитар (SKINS), купленное и надетое
   song_judge.gd    оценка игры по табу; наружу — факты fact(kind, data)
   style_meter.gd   стиль D…SSS из фактов оценки: набор, разнообразие, таяние, падения
@@ -209,13 +226,18 @@ core/              логика без показа
 audio/             backing.gd — подложка из сэмплов по аккордам (STYLES); sample_bank.gd — сэмплы гитары; sfx.gd — звуки стиля;
                    ui_sounds.gd — звуки отклика на действия;
                    guitar_voices.gd, string_voice.gd — голоса
-view/              stage_view.gd — неоновая сцена с гитарой, hud.gd — дорожка-таб и интерфейс, fx_layer.gd — свечение
-                   и искры, crt_overlay.gd — сканлайны и виньетка,
-                   guitar_art.gd — электрогитара кодом (формы корпусов, отделка), style_view.gd — буква ранга,
-                   shaker.gd — тряска экрана,
-                   touch_pad.gd — сенсор, pad_art.gd — его кнопки (гриф, струны), layout.gd, glyph.gd — рисовалки и шрифты
+view/              stage_view.gd — неоновая сцена с гитарой, fx_layer.gd — свечение и искры, crt_overlay.gd —
+                   сканлайны и виньетка, style_view.gd — буква ранга, shaker.gd — тряска экрана, layout.gd, glyph.gd
+  hud/             hud.gd — слои интерфейса: экран на режим (menu/song/results/jam/shop_view.gd), key_controls.gd,
+                   touch_controls.gd, toast.gd; общее — lanes.gd (дорожка), cue.gd, chord_guide.gd, note_map.gd, loop_bar.gd
+  touch/           touch_pad.gd — пальцы → действия ввода; touch_buttons.gd, touch_lists.gd — раскладка; bend_gesture.gd;
+                   pad_art.gd, string_art.gd, neck_art.gd — кнопки, струны, гриф
+  guitar/          guitar_art.gd — электрогитара кодом, guitar_shapes.gd — формы корпусов и головок
 assets/            guitar/ bass/ drums/ tracks/ fx/ fonts/ — собраны tools/build_assets.py (источники — CREDITS.md)
-dev/               DevArgs/DevTools, бот autoplay.gd (играет песни по табу), тесты dev/tests
+dev/               dev_args.gd, test_runner.gd + tests/, simulation.gd + autoplay.gd (бот играет песни по табу),
+                   screenshot.gd + gestures.gd (снимки, жесты пальцами), tone_meter.gd (громкость гитар)
+tools/             build_assets.py + track_analysis.py — ассеты из загрузок; classics.py + classics_data.py — пак
+                   «Классика в роке»: табы; band.py + band_score.py + band_samples.py — подложки живой группой
 ```
 
 ## Команды разработки

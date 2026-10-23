@@ -1,6 +1,5 @@
 class_name StyleTests
 extends TestSuite
-## Шкала стиля: растёт от попаданий и техники, разнообразие ценится, тает со временем, ошибки роняют ранг.
 
 var meter: StyleMeter
 var log: Array[String] = []
@@ -13,7 +12,6 @@ func before_each() -> void:
 		log.append("%s%s" % ["↑" if up else "↓", StyleMeter.RANKS[rank]["id"]]))
 
 
-## Лямбда сигнала держит набор тестов, а он — шкалу: без этого цикл не освободится.
 func after_all() -> void:
 	meter = null
 

@@ -1,11 +1,4 @@
 class_name Shop
-## Магазин гитар. Монеты дают песни (reward: за звёзды и счёт), на них покупаются скины электрогитары.
-## Скин (SKINS) — облик: форма корпуса (GuitarArt.SHAPES), звукосниматели (GuitarArt.PICKUPS), цвета
-## и отделка: rings — санбёрст кольцами от edge к body, stripes — блики металлика, sparkle — искры,
-## neon — светящийся кант цвета edge. И звук — «tone»: имя и эффекты шины гитары (GuitarVoices.set_tone;
-## формат — {type: класс эффекта Godot, свойства}). Надетая гитара — на сцене и в звуке.
-## Монеты, купленное и надетое — в FILE (пишется, только если Songs.persist). Первый запуск с магазином
-## начисляет монеты за уже набранные рекорды (load_saved после Songs.load_saved).
 
 const FILE := "user://shop.json"
 const COINS_PER_STAR := 10
@@ -118,7 +111,6 @@ static func current() -> Dictionary:
 	return skin(equipped)
 
 
-## Монеты за сыгранную песню: COINS_PER_STAR за звезду, по монете за каждые SCORE_PER_COIN очков и за стиль.
 static func reward(result: Dictionary) -> int:
 	var earned := coins_for(result)
 	coins += earned
@@ -126,7 +118,6 @@ static func reward(result: Dictionary) -> int:
 	return earned
 
 
-## Монеты за результат: звёзды, очки и бонус лучшего стиля (StyleMeter.RANKS).
 static func coins_for(result: Dictionary) -> int:
 	@warning_ignore("integer_division")
 	return int(result.get("stars", 0)) * COINS_PER_STAR + int(result.get("score", 0)) / SCORE_PER_COIN \
@@ -161,7 +152,6 @@ static func load_saved() -> void:
 	load_data(Songs.load_json(FILE))
 
 
-## Состояние из сохранения (null — магазина ещё не было).
 static func load_data(data: Variant) -> void:
 	reset()
 	if not data is Dictionary:

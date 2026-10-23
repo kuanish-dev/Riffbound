@@ -2,10 +2,18 @@
 
 Симулятор гитары на клавиатуре (бывший ритм-экшен: врагов и цветов больше нет), Godot 4.7.2, GDScript
 типизированный, всё строится кодом (редактор не используется). Управление, табы и устройство — в README.md.
-Комментарии по-русски, идентификаторы по-английски.
+Комментариев в коде нет (просьба пользователя): код объясняет себя именами, короткими функциями и файлами
+с одной обязанностью — кусок кода должен читаться без чтения соседних. Неочевидное «почему» и форматы данных —
+здесь, в CLAUDE.md, а правила игры — в README.md. Идентификаторы по-английски, тексты для игрока — по-русски.
 
 ## Правила архитектуры
-- `core/` не знает о `view/` и `audio/`; связывает всё `app/main.gd`. Службы для показа — через `Game`.
+- `core/` не знает о `view/` и `audio/`; связывает всё `app/`: `Main` — режимы и маршрут команд, `SceneBuilder` —
+  сборка сцены, `MusicLoader` — подложка и метроном, `JamSession`/`ShopScreen`/`CommonCommands` — команды режимов,
+  `GuitarRouter` — события гитары в голос, лупер и оценку, `Feedback` — звуки отклика. Службы для показа — через `Game`.
+- Показ: `Hud` — фасад над слоями `view/hud/` (экран на режим: `MenuView`, `SongView`, `ResultsView`, `JamView`,
+  `ShopView`; `KeyControls`/`TouchControls`; `Toast`); общее — `Lanes` (дорожка), `Cue` (что жать), `Strikes`, `Ink`.
+  Сенсор — `view/touch/` (`TouchPad` — пальцы, `TouchButtons`/`TouchLists` — раскладка, `BendGesture`, рисование —
+  `PadArt`/`StringArt`/`NeckArt`). Гитара на сцене — `view/guitar/` (`GuitarArt`, формы — `GuitarShapes`).
 - Игра на гитаре — события `{kind, string, fret, pos, midis, amount}`, kind = метод `StringVoice`
   (pluck, slur, mute, dead, bend). Их одинаково играет живой голос и слои лупера, пишет `Looper`,
   выгружает `MidiFile`, превращает в песню `Songs.from_layer`.
@@ -13,19 +21,23 @@
   их методами `_on_<факт>`. Время приходит параметрами, часы он сам не читает. Так же устроен `StyleMeter`:
   ест факты оценки, время — в `update()`, наружу — `ranked(rank, up)` (его слушают StyleView, Shaker,
   FxLayer, звук в Main). Баланс рангов — `StyleMeter.RANKS`/`GAIN`/`DROP`; `--sim` печатает стиль каждой песни.
-- Код управляется таблицами: `Songs.BUILT_IN` (табы), `Songs.EVENT_NOTES`, `Tuning.SCALES`, `Backing.STYLES`/
+- Код управляется таблицами: `SongBook.SONGS` (табы), `LayerSong.EVENT_NOTES`, `Tuning.SCALES`, `Backing.STYLES`/
   `PARTS`/`KEYS`, `Harmony.QUALITIES`/`PROGRESSIONS`, `Tracks.BUILT_IN`/`LOADERS`, `SampleBank.NOTES`, `FxLayer.TEX`, `Shop.SKINS` (облик гитары —
-  данные), `UiSounds.SOUNDS` (рецепты звуков отклика), `Main.COMMAND_SOUNDS`/`FACT_SOUNDS`, `StyleMeter.RANKS`, `Shaker.KICKS`/`SWAY`, `Sfx.UP`/`DOWN`, `Layout.GUITAR_POSES`, `StageView.PALETTE`/
-  `STRIPES`/`SHADOWS`, `Glyph.NEON_LAYERS` (вид в духе Hotline Miami — неоновые надписи через `Glyph.neon`), `GuitarArt.SHAPES`/`HEADS`/`PICKUPS`, `TouchPad.lists()` (списки строками: меню, магазин), `Timing.JUDGEMENTS`, `SongJudge.STARS`/`TECH_NAMES`, `InputConfig.KEYS`, `Main.COMMANDS`
-  (режим → клавиша → метод), `TouchPad.GUITAR`/`EXTRA` (сенсорные кнопки → те же действия ввода; вид — `art` → `Hud._pad_<art>`, лады — гриф
-  `PadArt.neck`; цвета и анимации — константы `PadArt`), `Hud.FOOTER`, `Hud._draw_top_<режим>`/`_draw_highway_<режим>`, `GuitarVoices.LEAD_FX`,
-  `Autoplay._do_<действие>`, `Main._load_<kind>`/`_tap_<kind>` (подложка: style / track). Ветки `if id == "..."` не добавлять.
+  данные), `UiSounds.SOUNDS` (рецепты звуков отклика), `Main.COMMAND_SOUNDS`, `Feedback.FACT_SOUNDS`, `StyleMeter.RANKS`, `Shaker.KICKS`/`SWAY`, `Sfx.UP`/`DOWN`, `Layout.GUITAR_POSES`, `StageView.PALETTE`/
+  `STRIPES`/`SHADOWS`, `Glyph.NEON_LAYERS` (вид в духе Hotline Miami — неоновые надписи через `Glyph.neon`), `GuitarShapes.SHAPES`/`HEADS`/`PICKUPS`, `TouchLists.lists()` (списки строками: меню, магазин), `Timing.JUDGEMENTS`, `SongJudge.STARS`/`TECH_NAMES`, `InputConfig.KEYS`, `Main.COMMANDS`
+  (режим → клавиша → «метод» или «объект.метод»), `TouchButtons.GUITAR`/`EXTRA` (сенсорные кнопки → те же действия ввода;
+  вид — `art` → `TouchControls._draw_<art>`, лады — гриф `NeckArt`), `GuitarVoices.LEAD_FX`,
+  `Autoplay._do_<действие>`, `MusicLoader._load_<kind>`, `JamSession._tap_<kind>` (подложка: style / track). Ветки `if id == "..."` не добавлять.
 - Темп переменный: `Timing.bpm` (песня — `bpm`, трек — свой), длины — `Timing.slot_len()`/`beat_len()`/`bar_len()`.
   Ставит его Main до `performance.start()` и `conductor.start()`; лупер — `Looper.BARS` тактов текущего темпа.
 - Музыка — круг в целых тактах: `Conductor.set_music(stream, секунды, loop_start, offset)`. Встроенные треки
   `tools/build_assets.py` режет ровно в `bars` тактов от сильной доли; свои — часы заворачивают сами.
   Метроном (N, `Game.metronome`) — второй плеер Conductor (`set_click`, луп `Backing.metronome` в такт):
   стартует и перескакивает вместе с музыкой, выключенный играет беззвучно — так он не уходит с доли.
+- Пак «Классика в роке»: песня играет под свой трек (backing = id трека, тот же id), трек — живая группа, сведённая
+  заранее (`tools/band.py`: STYLES, MIX), один источник — `tools/classics.py` (мелодия нотами → таб, аккорды,
+  стиль). Позиции руки таб выбирает сам (меньше сдвигов). Согласованность трека и песни — `test_song_tracks_match_songs`.
+  Сэмплы (~750 МБ) — вне репозитория, в `~/Desktop/projects/riffbound-sources` (что откуда — CREDITS.md).
 - Гармония — `Harmony` (имя аккорда → ноты). Музыка знает свои аккорды по тактам: `Game.chords` (по кругу от начала часов).
   Стиль играет их (`Backing.render(id, аккорды)`: бас — ступени `BASS_NOTES`, клавиши — аккорд), у песни — её `chords`
   (`Songs.chords_of`, весь таймлайн с отсчётом), в джеме — `Harmony.progression` строя, у трека — найденные по звуку
@@ -43,18 +55,18 @@
   в магазине — выбранная). Новый звук: свойства проверяет `test_tones_are_valid`, громкость — `--tones`
   (держать около −18 дБ, как «кранч»; подгонять post_gain перегруза или AudioEffectAmplify в конце).
 - Интерфейс минимальный (игрок не должен путаться): на экране только нужное сейчас. Подсказка клавиш — одна строка
-  `Hud.HINTS` на режим; что жать перед нотой — `Hud._cue()` (мигают клавиши и кнопки); сенсорные кнопки прячутся
+  `KeyControls.HINTS` на режим; что жать перед нотой — `Cue.next()` (мигают клавиши и кнопки); сенсорные кнопки прячутся
   по `needs` (`Game.needs` — умения песни) и `more` (панель «Ещё» джема, `Game.more`). На сенсоре бенд — жест
-  (удар по струне и тяга вбок, `TouchPad.BEND_*`), списки листаются пальцем (`Game.scroll`), строки — по отпусканию. Новую кнопку или надпись —
+  (удар по струне и тяга вбок, `BendGesture`), списки листаются пальцем (`Game.scroll`), строки — по отпусканию. Новую кнопку или надпись —
   только если без неё не сыграть; второстепенное — в «Ещё».
-- Каждое действие игрока звучит: команда без исхода — строка в `Main.COMMAND_SOUNDS`, с исходом — `_say(звук, текст)`
+- Каждое действие игрока звучит: команда без исхода — строка в `Main.COMMAND_SOUNDS`, с исходом — `feedback.say(звук, текст)`
   в методе (не `hud.toast` напрямую). Имена звуков проверяет `SoundTests` (и в таблицах, и в вызовах в коде).
 - Новая форма корпуса обязана проходить `ShopTests` (контур триангулируется, ручки и звукосниматели на корпусе);
   смотреть все гитары разом — снимок `--shop --skin=N` или лист скинов.
 - Новая встроенная песня обязана проходить `test_built_in_songs_are_playable` и `--sim` на 100%.
 
 ## Подводные камни
-- Подложки песен собираются в фоновом потоке, пока игрок в меню (`Main._prerender_tick`; на эмуляторе с SwiftShader
+- Подложки песен собираются в фоновом потоке, пока игрок в меню (`MusicLoader.prerender_tick`; на эмуляторе с SwiftShader
   песня собирается ~2 с, в основном потоке это была пауза после касания). Поэтому `Backing.render` не читает
   глобальное: темп — параметром, кэш сэмплов — свой у потока (`pcm`).
 - Петля `AudioStreamWAV`: микшер читает за `loop_end` — на Android это SIGSEGV через ~1 круг (на Mac молча).
@@ -65,6 +77,10 @@
 - `input_devices/pointing/emulate_touch_from_mouse` делает `is_touchscreen_available()` = true и на компьютере —
   в проект не ставить; `--touch` включает эмуляцию из кода.
 - WAV барабанов и баса — `compress/mode=0` в `.import` (по умолчанию QOA, тогда `AudioStreamWAV.data` не PCM).
+- Swagbass подписывает ноты на октаву выше, чем они звучат («a1» — это A0): файлы `assets/bass/<midi>.wav` названы
+  по настоящей высоте (`build_assets.BASS_OCTAVE`). Раньше бас подложки звучал на октаву ниже (~30–60 Гц, телефон
+  его не воспроизводит). Emily — по-научному, VSCO — на две октавы ниже (`band.scan`).
+- Аккорды треков — такты через «|», внутри такта — через пробел («D A|Bm F#m»).
 - Rubik — вариативный шрифт, по умолчанию Light: вес задаёт `FontVariation` (`Glyph.text_font()`).
   Ресурсы в `static var` дают «resources still in use at exit» — шрифт держит ThemeDB.
 - libsndfile падает, если писать длинный Vorbis одним блоком — `build_assets.write_ogg` пишет кусками.
@@ -85,6 +101,39 @@
 - Общие лады на все струны: прижатый лад, пока звенит другая струна, даёт на ней хаммер-он. Поэтому оценка
   прощает случайное легато, а бот переставляет пальцы «сначала отпустить».
 
+## Форматы данных
+- Таб песни (`SongBook`): такт — строка на струну из восьми клеток: `-` пусто, `1`…`4` удар по ладу, `x` глушняк,
+  `h2`/`p1` легато к ладу без удара, `…b` бенд, `=` держать ноту ещё восьмую; `pos` такта — позиция руки;
+  `chords` — аккорд на такт («Am E» — два аккорда делят такт); `backing` — стиль `Backing.STYLES` или id трека.
+- Партии подложки (`Backing.STYLES`, `tools/band.py` STYLES): такт — строка из восьми восьмых: `.` тишина,
+  строчная — удар, заглавная — с акцентом. Бас: `x` корень аккорда, `o` октава, `f` квинта. Гитара группы: `x` —
+  глушёный ладонью пауэр-аккорд, `X` — открытый (звенит до следующего удара). Клавиши/струнные: аккорд до следующего.
+  `order` — какие такты стиля по кругу; у группы `count`/`intro` — два такта отсчёта, `end` — последний такт.
+- Аккорды трека (`Tracks.BUILT_IN`): такты через `|`, внутри такта — через пробел («D A|Bm F#m»).
+- Мелодия пака (`tools/classics.py`): по тактам, восемь восьмых: нота (`E5`, `D#5`, `Bb4`), `-` пауза, `=` держать.
+- Жест для снимка (`dev/gestures.gd`): `[время, палец, press|drag|lift|wiggle, кнопка, сдвиг от её середины]`;
+  wiggle — палец качается вокруг сдвига, пока не придёт его следующий шаг.
+- Аргументы разработки (после `--`): `--test`, `--sim`, `--screenshot=<png>` (`--at=<с>`, `--autoplay`, `--jam`,
+  `--menu`, `--shop --skin=N`, `--gesture=<имя>`), `--song=N` (с 1), `--play`, `--jam`, `--backing=<id>`, `--touch`
+  (мышь как палец), `--metronome`, `--more` (панель «Ещё»), `--tones` (громкость гитар).
+
+## Почему так (неочевидное)
+- Время игры — позиция звука в плеере (`Conductor`), не кадры: иначе ритм плывёт. Свой трек короче файла
+  часы заворачивают сами (seek), без звука (headless) часы идут по кадрам, в тестах — вручную.
+- Метроном выключенный играет беззвучно, а не стоит: так при включении он не сбивается с доли.
+- Окно прощения `Fretboard.LENIENCY`: лад, зажатый чуть позже удара, считается ладом этого удара (звук удара
+  тогда звучит ещё раз — `corrected`). Легато открыто `LEGATO_WINDOW` с последней ноты на струне.
+- MIDI: каждая струна — свой канал, чтобы бенд одной струны не тянул остальные.
+- Звуки отклика (`UiSounds`) играют по кругу из пула плееров — быстрые звуки не обрывают друг друга.
+- Аккорд на одной струне звучит тише каждой ноты (`StringVoice`), чтобы в сумме не громче одиночной.
+- Камера (`Shaker`) чуть приближена, чтобы при наклоне не открывались углы; `CrtOverlay` рисуется с запасом
+  за краем — на тряску. Блики корпуса гитары обрезаны по корпусу — у вогнутых форм иначе вылезают.
+- Упакованный массив (`PackedFloat32Array`) в словаре или через `as` — копия: буфер звука передаётся параметром.
+- Объект с корутиной (`await`) живёт, пока на него есть ссылка: долгие dev-режимы — узлы сцены (`Simulation`).
+- Бот (`Autoplay`) переставляет лады «сначала отпустить», отпускает лады прошлой песни и сдвигает руку не раньше
+  прошлой ноты — иначе случайное легато и не те ноты.
+- Сенсор: бенд начинается, только если тянуть вбок (иначе это бой), сила — от точки удара.
+
 ## Команды (всегда с таймаутом)
 ```sh
 godot --headless --path . --import
@@ -92,7 +141,7 @@ perl -e 'alarm 120; exec @ARGV' godot --headless --path . -- --test             
 perl -e 'alarm 150; exec @ARGV' godot --headless --fixed-fps 120 --path . -- --sim        # [sim] PASS
 perl -e 'alarm 150; exec @ARGV' godot --path . -- --screenshot=<png> --song=4 --at=14 --autoplay
 perl -e 'alarm 150; exec @ARGV' godot --path . -- --screenshot=<png> --jam --backing=funked_up --at=6
-perl -e 'alarm 150; exec @ARGV' godot --path . -- --screenshot=<png> --jam --touch --gesture=vibrato --at=2.3   # жесты: DevTools.GESTURES
+perl -e 'alarm 150; exec @ARGV' godot --path . -- --screenshot=<png> --jam --touch --gesture=vibrato --at=2.3   # жесты: Gestures.SCRIPTS
 perl -e 'alarm 120; exec @ARGV' godot --path . -- --tones                  # громкость звуков гитар (динамики молчат)
 # GIF для README (docs/media; docs/.gdignore прячет папку от Godot и APK): кадры — Movie Maker Godot, GIF — ffmpeg
 godot --path . --write-movie <папка>/song.avi --fixed-fps 30 -- --screenshot=<png> --song=5 --touch --autoplay --at=18
@@ -100,6 +149,9 @@ godot --path . --write-movie <папка>/jam.avi --fixed-fps 30 -- --screenshot
 ffmpeg -ss 5.5 -t 9.5 -i song.avi -vf "fps=10,scale=640:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle" -loop 0 docs/media/gameplay.gif
 python -I tools/build_assets.py <папка_загрузок> [tracks]     # assets/ (numpy, scipy, soundfile, librosa, ffmpeg)
 python -I tools/build_assets.py --chords                       # аккорды тактов встроенных треков → Tracks.BUILT_IN
+# «Классика в роке»: мелодии, аккорды, аранжировки — tools/classics.py; группа из сэмплов — tools/band.py (pedalboard)
+python -I tools/classics.py tabs                               # табы → SongBook.SONGS (вставить)
+python -I tools/classics.py render ~/Desktop/projects/riffbound-sources   # assets/tracks/<id>.ogg + строки Tracks.BUILT_IN
 # APK (пресет export_presets.cfg «Android», шаблоны 4.7.2, SDK/Java прописаны в editor_settings-4.7.tres):
 JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home \
 GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$HOME/.android/debug.keystore \

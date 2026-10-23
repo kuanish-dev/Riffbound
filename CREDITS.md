@@ -17,6 +17,18 @@
 Темп, сильная доля и тональность определены автоматически (librosa; для Rock Theme 3 и Rocky Musicloop темп —
 из MIDI авторов).
 
+## Подложки пака «Классика в роке» — `assets/tracks/` (swan_lake, fate, canon, fur_elise, turkish_march, bumblebee)
+Аранжировки свои (`tools/classics.py`), сведены скриптом `tools/band.py` из сэмплов ниже: удары барабанов сведены
+из многомикрофонной записи в стерео, гитара — чистый сигнал через перегруз и имитацию кабинета, всё — с компрессией,
+эквализацией и ревербом (pedalboard от Spotify, GPL-3.0; в игру не входит).
+
+| Инструмент | Авторы | Источник | Лицензия |
+|---|---|---|---|
+| MuldjordKit — барабаны (Tama Superstar) | Lars Muldjord, DrumGizmo ([drumgizmo.org](https://drumgizmo.org)); SFZ-версия — kinwie | [github.com/sfzinstruments/DrumGizmo.MuldjordKit](https://github.com/sfzinstruments/DrumGizmo.MuldjordKit) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| Emily Guitar — ритм-гитара и подголосок | Karoryfer Samples | [github.com/sfzinstruments/karoryfer.emilyguitar](https://github.com/sfzinstruments/karoryfer.emilyguitar) | CC0 |
+| Swagbass — бас | Karoryfer Samples | [github.com/sfzinstruments/karoryfer.swagbass](https://github.com/sfzinstruments/karoryfer.swagbass) | CC0 |
+| VSCO 2 Community Edition — альты и виолончели | Versilian Studios | [github.com/sgossner/VSCO-2-CE](https://github.com/sgossner/VSCO-2-CE) | CC0 |
+
 ## Сэмплы — `assets/guitar/`, `assets/bass/`, `assets/drums/` (CC0, Karoryfer Samples)
 | Инструмент | Источник | Обработка |
 |---|---|---|
@@ -35,5 +47,6 @@ star_05, smoke_03, circle_05, уменьшены до 256×256.
 | Russo One | Jovanny Lemonad | `assets/fonts/RussoOne-OFL.txt` |
 
 ## Мелодии песен
-Коробейники (народная), «В пещере горного короля» (Григ), «Ода к радости» (Бетховен), Токката ре минор (Бах) —
-общественное достояние; табы упрощены и записаны для игры.
+Коробейники (народная), «В пещере горного короля» (Григ), «Ода к радости» (Бетховен), Токката ре минор (Бах),
+«Лебединое озеро» (Чайковский), Симфония №5 и «К Элизе» (Бетховен), Канон ре мажор (Пахельбель), «Турецкий марш»
+(Моцарт), «Полёт шмеля» (Римский-Корсаков) — общественное достояние; табы упрощены и записаны для игры.

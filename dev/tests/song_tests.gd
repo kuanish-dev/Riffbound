@@ -1,6 +1,5 @@
 class_name SongTests
 extends TestSuite
-## Песни: разбор таба, играбельность встроенных песен, оценка игры (SongJudge), песня из лупа.
 
 const LEAD := Songs.LEAD_IN * 8
 
@@ -20,10 +19,8 @@ func test_tab_hold_across_bars() -> void:
 	eq(Songs.end_slot(_song([{"low": "1 - - - - - - -"}])), LEAD + 16, "конец — такт после последней ноты")
 
 
-## Каждое легато встроенных песен должно быть сыграбельным: на той же струне перед ним нота,
-## начатая не раньше окна легато; позиции — в диапазоне сэмплов.
 func test_built_in_songs_are_playable() -> void:
-	for song: Dictionary in Songs.BUILT_IN:
+	for song: Dictionary in SongBook.SONGS:
 		var notes := Songs.notes_of(song)
 		check(not notes.is_empty(), "%s: есть ноты" % song["id"])
 		var last := {}

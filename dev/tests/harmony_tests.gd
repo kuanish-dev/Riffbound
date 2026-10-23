@@ -1,6 +1,5 @@
 class_name HarmonyTests
 extends TestSuite
-## Гармония: имена аккордов, аккорд по времени, аккорды песен и треков, подложка по аккордам.
 
 
 func after_all() -> void:
@@ -42,7 +41,7 @@ func test_degree_and_role() -> void:
 
 
 func test_song_chords() -> void:
-	for song: Dictionary in Songs.BUILT_IN:
+	for song: Dictionary in SongBook.SONGS:
 		var own: Array = song["chords"]
 		eq(own.size(), (song["bars"] as Array).size(), "%s: аккорд на каждый такт" % song["id"])
 		for spec: String in own:
@@ -62,10 +61,25 @@ func test_song_without_chords_follows_key() -> void:
 
 func test_track_chords() -> void:
 	for track: Dictionary in Tracks.BUILT_IN:
-		var bars := String(track["chords"]).split(" ", false)
+		var bars := String(track["chords"]).split("|", false)
 		eq(bars.size(), int(track["bars"]), "%s: аккорд на каждый такт" % track["id"])
-		for name in bars:
-			check(not Harmony.parse(name).is_empty(), "%s: «%s» — аккорд" % [track["id"], name])
+		for spec in bars:
+			for name in spec.split(" ", false):
+				check(not Harmony.parse(name).is_empty(), "%s: «%s» — аккорд" % [track["id"], name])
+
+
+func test_song_tracks_match_songs() -> void:
+	var songs := 0
+	for song: Dictionary in SongBook.SONGS:
+		var track := Tracks.find(String(song["backing"]))
+		if track.is_empty():
+			continue
+		songs += 1
+		var chords := Songs.chords_of(song)
+		eq(int(track["bars"]), chords.size(), "%s: трек длиной в песню" % song["id"])
+		eq(String(track["chords"]), "|".join(chords), "%s: аккорды трека — аккорды песни" % song["id"])
+		eq(float(track["bpm"]), Songs.bpm_of(song), "%s: темп трека — темп песни" % song["id"])
+	check(songs >= 6, "песни пака играют под свои треки")
 
 
 func test_backing_plays_chords() -> void:

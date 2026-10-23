@@ -1,7 +1,5 @@
 class_name SoundTests
 extends TestSuite
-## Звуки отклика: каждый рецепт собирается в слышный и не перегруженный звук, а все имена звуков,
-## которые зовёт Main (таблицы и вызовы в коде), есть в UiSounds.SOUNDS.
 
 
 func test_sounds_render() -> void:
@@ -20,14 +18,16 @@ func test_command_sounds_match_commands() -> void:
 		for action: String in Main.COMMAND_SOUNDS[scope]:
 			check((Main.COMMANDS.get(scope, {}) as Dictionary).has(action), "%s/%s: такая команда есть" % [scope, action])
 			check(UiSounds.SOUNDS.has(Main.COMMAND_SOUNDS[scope][action]), "%s/%s: звук есть" % [scope, action])
-	for kind: String in Main.FACT_SOUNDS:
-		check(UiSounds.SOUNDS.has(Main.FACT_SOUNDS[kind]), "факт %s: звук есть" % kind)
+	for kind: String in Feedback.FACT_SOUNDS:
+		check(UiSounds.SOUNDS.has(Feedback.FACT_SOUNDS[kind]), "факт %s: звук есть" % kind)
 
 
-## Имена звуков в вызовах ui.play(звук) и _say(звук, …) в коде Main.
 func test_sounds_named_in_code_exist() -> void:
-	var source := FileAccess.get_file_as_string("res://app/main.gd")
-	var calls := RegEx.create_from_string("(?:ui\\.play|_say)\\((\"[a-z_]+\"(?: if [^,]+ else \"[a-z_]+\")?)")
+	var source := ""
+	for file in DirAccess.get_files_at("res://app"):
+		if file.ends_with(".gd"):
+			source += FileAccess.get_file_as_string("res://app".path_join(file))
+	var calls := RegEx.create_from_string("(?:play|say)\\((\"[a-z_]+\"(?: if [^,]+ else \"[a-z_]+\")?)")
 	var names := RegEx.create_from_string("\"([a-z_]+)\"")
 	var found := 0
 	for call in calls.search_all(source):

@@ -1,22 +1,19 @@
 class_name StyleView
 extends Node2D
-## Ранг стиля (Game.style) в углу сцены, как в слэшерах: большая буква цвета ранга с ореолом, подпись
-## и шкала, которая тает на глазах. Рост ранга — буква выскакивает, падение — старая буква валится и гаснет.
-## На высоких рангах буква дрожит. Только в песне.
 
-const AT := Vector2(1130, 142)                ## центр буквы
-const LETTER_SIZE := {1: 104, 2: 90, 3: 74}   ## кегль по числу букв
+const AT := Vector2(1130, 142)
+const LETTER_SIZE := {1: 104, 2: 90, 3: 74}
 const TILT := -0.08
-const POP_SPEED := 9.0                        ## как быстро гаснет «выскок» (1/с)
+const POP_SPEED := 9.0
 const FALL_TIME := 0.7
 const BAR := Rect2(1030, 210, 200, 8)
 const DOWN := Color(1.0, 0.25, 0.2)
 
-var _pop := 9.0                               ## секунд с роста ранга
-var _shown := -1                              ## ранг, который сейчас нарисован
-var _fall := {}                               ## падающая буква: {rank, t}
+var _pop := 9.0
+var _shown := -1
+var _fall := {}
 var _t := 0.0
-var _glow := Node2D.new()                     ## ореол за буквой — сложением цветов (у текстуры чёрные края)
+var _glow := Node2D.new()
 
 
 func _ready() -> void:
@@ -71,7 +68,6 @@ func _draw() -> void:
 		_letter(id, AT + Vector2(40.0 * k, 150.0 * k * k), TILT + 0.9 * k, 1.0 - 0.3 * k, Color(DOWN, 1.0 - k))
 
 
-## Ореол цвета ранга: вспыхивает при росте и дышит в долю на высоком стиле.
 func _draw_glow() -> void:
 	var style := Game.style
 	if Game.state != "song" or style == null or not style.visible():
@@ -85,6 +81,5 @@ func _draw_glow() -> void:
 		Color(tint, minf(1.0, 0.6 + 0.6 * pop + 0.3 * pulse)))
 
 
-## Буква ранга неоновыми слоями: центр, наклон, масштаб.
 func _letter(id: String, center: Vector2, angle: float, scale: float, tint: Color) -> void:
 	Glyph.neon(self, center, id, int(LETTER_SIZE.get(id.length(), 74)), tint, angle, scale)

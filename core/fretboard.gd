@@ -1,41 +1,23 @@
 class_name Fretboard
 extends Node
-## Гитара под пальцами. Левая рука держит лады, правая бьёт по одной из струн (Notes.STRINGS).
-## Нота рождается в момент удара: звучит верхний из зажатых ладов, высота — от струны и строя (Tuning).
-## Как на настоящей гитаре:
-## - нота звенит, пока зажат её лад: отпустил — струна заглушена (muted);
-## - на струне одна нота за раз, разные струны звенят вместе;
-## - легато: пока последняя струна звенит недавно (LEGATO_WINDOW), прижатый выше лад — хаммер-он,
-##   а снятый верхний палец при зажатом нижнем — пулл-офф: новая нота без удара (slurred),
-##   звучит верхний из зажатых ладов;
-## - бенд: пока зажата клавиша бенда, последняя струна подтянута на тон (bent, сила 1); тяга пальцем
-##   («bend_pull») подтягивает на любую высоту до Tuning.BEND_MAX — как на настоящей гитаре, и вибрато тоже.
-## - слайд: пока палец едет по ладам, не отрываясь (sliding, действие «slide»), смена лада — та же нота
-##   без удара, но высота плавно съезжает (Main метит событие glide); работает, пока нота звенит, без окна легато.
-## Окно прощения: лад, зажатый чуть позже удара (до LENIENCY), считается ладом этого удара.
 
-## Звук удара: сразу при ударе и ещё раз, если окно прощения поменяло ноту (corrected).
 signal voiced(note: String, string: String, corrected: bool)
-## Удар засчитан (после окна прощения): нота, струна и время удара.
 signal played(note: String, string: String, time: float)
-## Легато: новая нота на струне без удара.
 signal slurred(note: String, string: String, time: float)
-## Струна заглушена: отпущен лад её ноты.
 signal muted(string: String, time: float)
-## Бенд струны: amount 1 — подтянута, 0 — отпущена.
 signal bent(string: String, amount: float, time: float)
 
 const LENIENCY := 0.05
-const LEGATO_WINDOW := 0.65     ## чуть дольше четверти при 100 BPM
+const LEGATO_WINDOW := 0.65
 
 var conductor: Conductor
-var held := {}            ## лад → true, пока зажат
-var active := ""          ## струна последней ноты: на ней легато и бенд
-var ringing := {}         ## струна → {note, frets, since}: что звенит и какими ладами держится
+var held := {}
+var active := ""
+var ringing := {}
 var bending := false
-var bend_amount := 0.0    ## сила бенда: 1 — тон, до Tuning.BEND_MAX
-var sliding := false      ## палец едет по ладам — смена лада будет слайдом
-var _pending := {}        ## удар в окне прощения: time, note, string, fret_pressed
+var bend_amount := 0.0
+var sliding := false
+var _pending := {}
 
 
 func _init() -> void:
@@ -101,7 +83,6 @@ func strike(string: String) -> void:
 		bent.emit(string, bend_amount, time)
 
 
-## Сила бенда: 0 — отпущен, 1 — на тон, до Tuning.BEND_MAX.
 func set_bend(amount: float) -> void:
 	amount = clampf(amount, 0.0, Tuning.BEND_MAX)
 	bending = amount > 0.0
@@ -110,13 +91,11 @@ func set_bend(amount: float) -> void:
 		bent.emit(active, amount, conductor.player_time())
 
 
-## Закрывает окно прощения, когда оно истекло.
 func update() -> void:
 	if not _pending.is_empty() and conductor.player_time() - float(_pending["time"]) >= LENIENCY:
 		_commit()
 
 
-## Забыть удар в окне прощения и звенящие струны (новый бой или джем: часы начались заново).
 func cancel() -> void:
 	_pending = {}
 	ringing.clear()
@@ -161,12 +140,10 @@ func _legato_open() -> bool:
 		and conductor.player_time() - float(ringing[active]["since"]) <= LEGATO_WINDOW
 
 
-## Слайд: палец едет по ладам, а последняя струна ещё звенит — сколько угодно после удара.
 func _slide_open() -> bool:
 	return sliding and active != "" and ringing.has(active)
 
 
-## Верхний из зажатых ладов ("" — ничего не зажато).
 func _top_fret() -> String:
 	var top := ""
 	for fret: String in Notes.FRETS:

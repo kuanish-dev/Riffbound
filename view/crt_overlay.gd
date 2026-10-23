@@ -1,7 +1,5 @@
 class_name CrtOverlay
 extends Node2D
-## Плёнка поверх всего, как в Hotline Miami: сканлайны (тёмная строка каждые period пикселей) и затемнённые
-## края. Рисуется один раз; с запасом MARGIN за краем — на тряску и качание камеры.
 
 const SCANLINES := {"period": 3, "alpha": 0.14}
 const VIGNETTE := {"width": 150.0, "alpha": 0.42}

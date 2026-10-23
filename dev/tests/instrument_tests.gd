@@ -1,6 +1,5 @@
 class_name InstrumentTests
 extends TestSuite
-## Гитара как инструмент: глушение отпущенным ладом, хаммер-он, пулл-офф, окно легато, бенд.
 
 var clock: Conductor
 var fb: Fretboard

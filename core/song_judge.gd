@@ -1,24 +1,19 @@
 class_name SongJudge
 extends RefCounted
-## Игра песни по табу. Ноту песни нужно сыграть на её струне нужной высоты в окно доли (Timing):
-## удар или легато — годится и то, и другое, а совпавшая техника (легато там, где h/p; бенд там, где b)
-## даёт бонус. Длинную ноту нужно держать — очки за удержание. Удар другой высоты рядом с нотой
-## песни — «не та нота», серия обрывается. Игра между нотами и случайное легато не наказываются.
-## Наружу — факты fact(kind, data): hit, miss, wrong, tech, sustain, finish.
 
 signal fact(kind: String, data: Dictionary)
 
 const TECH_BONUS := 50
-const SUSTAIN_POINTS := 20       ## за каждую удержанную восьмую сверх первой
-const STREAK_STEP := 10          ## каждые 10 нот подряд множитель +1
+const SUSTAIN_POINTS := 20
+const STREAK_STEP := 10
 const MULT_MAX := 4
-const STARS := [0.5, 0.7, 0.85, 0.95, 1.0]   ## доля сыгранных нот для 1…5 звёзд
-const WRONG_RANGE := 0.3         ## удар считается «не той нотой», если нота песни на этой струне ближе
+const STARS := [0.5, 0.7, 0.85, 0.95, 1.0]
+const WRONG_RANGE := 0.3
 const TECH_NAMES := {"h": "Хаммер-он!", "p": "Пулл-офф!", "bend": "Бенд!"}
-const BEND_COUNTS := 0.5         ## бенд засчитан, если струна подтянута хотя бы на полтона
+const BEND_COUNTS := 0.5
 
 var song := {}
-var notes: Array[Dictionary] = []    ## ноты песни + t, end, midi, state (wait/hit/miss), tech_ok
+var notes: Array[Dictionary] = []
 var score := 0
 var streak := 0
 var best_streak := 0
@@ -29,28 +24,33 @@ var techs := 0
 var tech_total := 0
 var finished := false
 var end_time := 0.0
-var _sounding := {}                  ## струна → индекс удерживаемой ноты песни
-var _bent := {}                      ## струна → бенд зажат
-var _last_hit := {}                  ## струна → {midi, time}: повтор той же ноты сразу после — не ошибка
+var _sounding := {}
+var _bent := {}
+var _last_hit := {}
 
 
 func start(song_def: Dictionary) -> void:
 	song = song_def
-	var tuning := Tuning.new()
-	tuning.key = int(song["key"])
-	tuning.scale = Tuning.scale_index(String(song["scale"]))
 	notes = Songs.notes_of(song)
-	tech_total = 0
+	var tuning := Tuning.new()
+	tuning.set_key(int(song["key"]), String(song["scale"]))
 	for note in notes:
-		note["t"] = int(note["slot"]) * Timing.slot_len()
-		note["end"] = (int(note["slot"]) + int(note["len"])) * Timing.slot_len()
-		tuning.position = int(note["pos"])
-		note["midi"] = -1 if note["fret"] == Notes.MUTE else tuning.midi(String(note["fret"]), String(note["string"]))
-		note["state"] = "wait"
-		note["tech_ok"] = false
-		if note["legato"] or note["bend"]:
-			tech_total += 1
+		_prepare(note, tuning)
+	tech_total = notes.filter(func(note: Dictionary) -> bool: return note["legato"] or note["bend"]).size()
 	end_time = Songs.end_slot(song) * Timing.slot_len()
+	_reset_counters()
+
+
+func _prepare(note: Dictionary, tuning: Tuning) -> void:
+	note["t"] = int(note["slot"]) * Timing.slot_len()
+	note["end"] = (int(note["slot"]) + int(note["len"])) * Timing.slot_len()
+	tuning.position = int(note["pos"])
+	note["midi"] = -1 if note["fret"] == Notes.MUTE else tuning.midi(String(note["fret"]), String(note["string"]))
+	note["state"] = "wait"
+	note["tech_ok"] = false
+
+
+func _reset_counters() -> void:
 	score = 0
 	streak = 0
 	best_streak = 0
@@ -69,7 +69,6 @@ func multiplier() -> int:
 	return mini(1 + streak / STREAK_STEP, MULT_MAX)
 
 
-## Доля сыгранных из уже оценённых нот (к концу песни оценены все).
 func accuracy() -> float:
 	return float(hits) / (hits + misses) if hits + misses > 0 else 1.0
 
@@ -86,7 +85,6 @@ func result() -> Dictionary:
 	return {"score": score, "stars": stars(), "accuracy": accuracy()}
 
 
-## Первая ещё не сыгранная нота песни (или пусто) — для подсказки позиции.
 func next_note() -> Dictionary:
 	for note in notes:
 		if note["state"] == "wait":
@@ -94,7 +92,6 @@ func next_note() -> Dictionary:
 	return {}
 
 
-## Сыграна нота: струна, высота (MIDI, −1 — глушняк), время, легато ли.
 func play(string: String, midi: int, time: float, legato: bool) -> void:
 	if finished:
 		return
@@ -102,6 +99,16 @@ func play(string: String, midi: int, time: float, legato: bool) -> void:
 	if not last.is_empty() and int(last["midi"]) == midi and time - float(last["time"]) <= Timing.widest_window() * 2.0:
 		return
 	_release(string, time)
+	var best := _closest_waiting(string, midi, time)
+	if best >= 0:
+		_hit(best, time, legato)
+	elif not legato and _wrong_nearby(string, midi, time):
+		wrongs += 1
+		streak = 0
+		fact.emit("wrong", {"string": string, "midi": midi})
+
+
+func _closest_waiting(string: String, midi: int, time: float) -> int:
 	var best := -1
 	var best_error := INF
 	for i in notes.size():
@@ -112,12 +119,7 @@ func play(string: String, midi: int, time: float, legato: bool) -> void:
 		if error <= Timing.widest_window() and error < best_error:
 			best = i
 			best_error = error
-	if best >= 0:
-		_hit(best, time, legato)
-	elif not legato and _wrong_nearby(string, midi, time):
-		wrongs += 1
-		streak = 0
-		fact.emit("wrong", {"string": string, "midi": midi})
+	return best
 
 
 func bend(string: String, amount: float, _time: float) -> void:
@@ -130,7 +132,6 @@ func mute(string: String, time: float) -> void:
 	_release(string, time)
 
 
-## Время идёт: пропущенные ноты, конец удержания, конец песни.
 func update(time: float) -> void:
 	if finished:
 		return
@@ -178,7 +179,6 @@ func _tech(note: Dictionary, kind: String) -> void:
 	fact.emit("tech", {"note": note, "label": TECH_NAMES.get(kind, "")})
 
 
-## Струна сменила ноту или заглохла — удержание её ноты песни закончилось.
 func _release(string: String, time: float) -> void:
 	if not _sounding.has(string):
 		return

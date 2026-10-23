@@ -1,6 +1,5 @@
 class_name JamTests
 extends TestSuite
-## Джем: лупер и экспорт в MIDI. Файлы не пишутся.
 
 
 func test_looper_records_one_loop() -> void:

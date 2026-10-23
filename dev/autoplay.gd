@@ -1,15 +1,11 @@
 class_name Autoplay
 extends Node
-## Бот для симуляции и снимков: играет песню по табу через настоящий ввод (Input.parse_input_event),
-## поэтому проверяет весь путь от клавиш до оценки. В джеме сразу включает запись лупа и играет
-## первую песню списка как фразу.
-## Из нот песни заранее строится расписание действий (_plan): лады, удары, легато, бенд, позиция.
-## Лады переставляются без нахлёста (сначала отпускает), чтобы не было случайного легато.
 
-const PREPARE := 0.06       ## за сколько до ноты переставить пальцы
-const SHIFT_AHEAD := 0.25   ## за сколько до ноты сдвинуть руку по грифу
+const PREPARE := 0.06
+const SHIFT_AHEAD := 0.25
+const SHIFT_AFTER := 0.03
 
-var _actions: Array[Dictionary] = []   ## {time, kind, ...} по возрастанию времени
+var _actions: Array[Dictionary] = []
 var _held := {}
 var _position := 0
 var _state := ""
@@ -29,41 +25,49 @@ func _process(_delta: float) -> void:
 
 func _start() -> void:
 	_actions.clear()
-	_held.clear()
+	_do_frets({"frets": []})
 	_position = Game.tuning.position if Game.tuning != null else 0
 	if Game.state == "song":
 		_plan(Game.performance.notes)
 	elif Game.state == "jam":
 		_send("record", true)
 		_send("record", false)
-		_plan(Songs.notes_of(Songs.BUILT_IN[0]))
+		_plan(Songs.notes_of(SongBook.SONGS[0]))
 
 
-## Расписание по нотам песни: для удара — заранее нужные лады (с нижними для будущих пулл-оффов),
-## затем удар; для легато — прижать лад выше или снять верхние; бенд — на время ноты.
 func _plan(notes: Array) -> void:
 	var position := _position
+	var last := -INF
 	for i in notes.size():
 		var note: Dictionary = notes[i]
 		var t := int(note["slot"]) * Timing.slot_len()
-		var fret := String(note["fret"])
 		if int(note["pos"]) != position:
-			_add(t - SHIFT_AHEAD, {"kind": "position", "to": int(note["pos"])})
 			position = int(note["pos"])
-		if note["legato"]:
-			_add(t, {"kind": "legato", "fret": fret})
-		else:
-			var frets := [] if fret == Notes.MUTE else [fret]
-			frets.append_array(_pull_targets(notes, i))
-			_add(t - PREPARE, {"kind": "frets", "frets": frets})
-			_add(t, {"kind": "strike", "string": note["string"]})
+			_add(maxf(t - SHIFT_AHEAD, last + SHIFT_AFTER), {"kind": "position", "to": position})
+		last = t
+		_plan_fingers(notes, i, t)
 		if note["bend"]:
-			_add(t + 0.02, {"kind": "bend", "on": true})
-			_add((int(note["slot"]) + int(note["len"])) * Timing.slot_len() - 0.04, {"kind": "bend", "on": false})
+			_plan_bend(note, t)
 	_actions.sort_custom(_earlier)
 
 
-## Лады пулл-оффов, идущих сразу за нотой на той же струне: их пальцы ставятся заранее.
+func _plan_fingers(notes: Array, i: int, t: float) -> void:
+	var note: Dictionary = notes[i]
+	var fret := String(note["fret"])
+	if note["legato"]:
+		_add(t, {"kind": "legato", "fret": fret})
+		return
+	var frets := [] if fret == Notes.MUTE else [fret]
+	frets.append_array(_pull_targets(notes, i))
+	_add(t - PREPARE, {"kind": "frets", "frets": frets})
+	_add(t, {"kind": "strike", "string": note["string"]})
+
+
+func _plan_bend(note: Dictionary, t: float) -> void:
+	_add(t + 0.02, {"kind": "bend", "on": true})
+	_add((int(note["slot"]) + int(note["len"])) * Timing.slot_len() - 0.04, {"kind": "bend", "on": false})
+
+
 func _pull_targets(notes: Array, index: int) -> Array:
 	var out: Array = []
 	var top := Notes.FRETS.find(notes[index]["fret"])
@@ -97,7 +101,6 @@ func _do_strike(action: Dictionary) -> void:
 	_send(InputConfig.strike_action(String(action["string"])), false)
 
 
-## Хаммер-он — прижать лад выше; пулл-офф — снять всё, что выше нужного лада (он уже зажат).
 func _do_legato(action: Dictionary) -> void:
 	var fret := String(action["fret"])
 	if not _held.get(fret, false):

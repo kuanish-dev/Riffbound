@@ -1,46 +1,52 @@
 class_name Tracks
-## Треки для джема (и для своих песен, записанных под трек).
-## BUILT_IN — CC0-петли (авторы — CREDITS.md). Их собирает tools/build_assets.py: режет ровно в «bars» тактов
-## от сильной доли (offset — пре-ролл перед ней), темп, такты и тональность считает там же — сетка игры не
-## уезжает на повторах. «chords» — аккорд каждого такта (Harmony), найденный там же по звуку (--chords);
-## у своих треков аккордов нет.
-## Свои треки игрок кладёт в папку Документы/Riffbound (user_dir, туда же джем сохраняет MIDI). Не «Музыка»:
-## на Android 11+ Godot читает напрямую только «Документы» и «Загрузки», а чужие файлы в «Музыке» ему не открыть.
-## Темп и тональность — из имени файла
-## («Song 120bpm Am.mp3»), иначе тап-темпом и клавишами тона/гаммы; найденное запоминается в MEMORY_FILE
-## (по имени файла): bpm, start (сильная доля в файле, с), key, scale.
 
 const DIR_NAME := "Riffbound"
 const MEMORY_FILE := "user://user_tracks.json"
-## Расширение → класс потока, который грузит файл с диска.
 const LOADERS := {"ogg": "AudioStreamOggVorbis", "mp3": "AudioStreamMP3", "wav": "AudioStreamWAV"}
-const TAIL := 0.05                     ## своя петля кончается чуть раньше файла
+const TAIL := 0.05
 const BUILT_IN := [
 	{"id": "rock_theme_3", "name": "Rock Theme 3", "author": "Umplix", "file": "res://assets/tracks/rock_theme_3.ogg",
 		"bpm": 120.0, "bars": 32, "offset": 0.01, "key": 2, "scale": "minor_pentatonic",
-		"chords": "Gm F A Dm Gm F A Dm Gm F C Dm Gm F A C Gm F Am Dm Gm F Am Dm Gm F C Dm Gm F C Dm"},
+		"chords": "Gm|F|A|Dm|Gm|F|A|Dm|Gm|F|C|Dm|Gm|F|A|C|Gm|F|Am|Dm|Gm|F|Am|Dm|Gm|F|C|Dm|Gm|F|C|Dm"},
 	{"id": "rocky_loop", "name": "Rocky Musicloop", "author": "johndekale", "file": "res://assets/tracks/rocky_loop.ogg",
 		"bpm": 90.0, "bars": 19, "offset": 0.01, "key": 0, "scale": "minor_pentatonic",
-		"chords": "Cm Cm Cm Cm Cm Cm Cm Cm Cm Cm Fm Fm Cm Fm Cm Cm Fm Cm Cm"},
+		"chords": "Cm|Cm|Cm|Cm|Cm|Cm|Cm|Cm|Cm|Cm|Fm|Fm|Cm|Fm|Cm|Cm|Fm|Cm|Cm"},
 	{"id": "unchained_destiny", "name": "Unchained Destiny", "author": "nene", "file": "res://assets/tracks/unchained_destiny.ogg",
 		"bpm": 127.02, "bars": 32, "offset": 0.01, "key": 0, "scale": "minor_pentatonic",
-		"chords": "Cm Cm G# Cm Cm Cm G# Cm Cm Cm Cm Cm Cm Cm G# Gm Cm Cm G# Gm Cm Cm G# Cm Cm Fm G# Cm Cm Fm G# Cm"},
+		"chords": "Cm|Cm|G#|Cm|Cm|Cm|G#|Cm|Cm|Cm|Cm|Cm|Cm|Cm|G#|Gm|Cm|Cm|G#|Gm|Cm|Cm|G#|Cm|Cm|Fm|G#|Cm|Cm|Fm|G#|Cm"},
 	{"id": "jrpg_battle", "name": "JRPG Rock Battle", "author": "HydroGene", "file": "res://assets/tracks/jrpg_battle.ogg",
 		"bpm": 152.0, "bars": 72, "offset": 0.01, "key": 6, "scale": "minor_pentatonic",
-		"chords": "F#m F#m F#m F#m F#m F#m F#m D C#m C#m C# C# F#m F#m F#m F#m F#m F#m F#m D C#m C#m C# A E E C#m A E Bm E C# F#m F#m F#m F#m F#m F#m F#m F#m F#m F#m F#m D C#m C#m E C# F#m F#m F#m F#m F#m F#m F#m D C#m C#m Bm A E E C#m A E Bm E F#m F#m F#m F#m F#m"},
+		"chords": "F#m|F#m|F#m|F#m|F#m|F#m|F#m|D|C#m|C#m|C#|C#|F#m|F#m|F#m|F#m|F#m|F#m|F#m|D|C#m|C#m|C#|A|E|E|C#m|A|E|Bm|E|C#|F#m|F#m|F#m|F#m|F#m|F#m|F#m|F#m|F#m|F#m|F#m|D|C#m|C#m|E|C#|F#m|F#m|F#m|F#m|F#m|F#m|F#m|D|C#m|C#m|Bm|A|E|E|C#m|A|E|Bm|E|F#m|F#m|F#m|F#m|F#m"},
 	{"id": "background_loop", "name": "Background Loop", "author": "Pro Sensory", "file": "res://assets/tracks/background_loop.ogg",
 		"bpm": 140.0, "bars": 56, "offset": 0.01, "key": 7, "scale": "major_pentatonic",
-		"chords": "G C G Em G C G Em G C G Em D C G Em G C G C G C G D G C D Em G C G Em G C D Em G Bm G Em G C G Em G C G Em G C G Em G C G Em"},
+		"chords": "G|C|G|Em|G|C|G|Em|G|C|G|Em|D|C|G|Em|G|C|G|C|G|C|G|D|G|C|D|Em|G|C|G|Em|G|C|D|Em|G|Bm|G|Em|G|C|G|Em|G|C|G|Em|G|C|G|Em|G|C|G|Em"},
 	{"id": "funked_up", "name": "Funked Up", "author": "Joth", "file": "res://assets/tracks/funked_up.ogg",
 		"bpm": 86.99, "bars": 24, "offset": 0.01, "key": 9, "scale": "minor_pentatonic",
-		"chords": "Em Am Em Am Em Am Am Am Em Am Am Am Em Am Am Am Am Am Am Am Am Am Em Am"},
+		"chords": "Em|Am|Em|Am|Em|Am|Am|Am|Em|Am|Am|Am|Em|Am|Am|Am|Am|Am|Am|Am|Am|Am|Em|Am"},
+	{"id": "swan_lake", "name": "Лебединое озеро", "author": "Чайковский", "file": "res://assets/tracks/swan_lake.ogg",
+		"bpm": 84.0, "bars": 11, "offset": 0.01, "key": 11, "scale": "natural_minor",
+		"chords": "Bm|Bm|Bm|D|Bm G|Bm|Bm|D|Bm G|Bm|Bm"},
+	{"id": "fate", "name": "Симфония №5", "author": "Бетховен", "file": "res://assets/tracks/fate.ogg",
+		"bpm": 140.0, "bars": 12, "offset": 0.01, "key": 0, "scale": "natural_minor",
+		"chords": "Cm|Cm|Cm|G|Cm|Ab|Fm|G|Cm|G|Cm|Cm"},
+	{"id": "canon", "name": "Канон ре мажор", "author": "Пахельбель", "file": "res://assets/tracks/canon.ogg",
+		"bpm": 100.0, "bars": 12, "offset": 0.01, "key": 2, "scale": "major",
+		"chords": "D A|D A|D A|Bm F#m|G D|G A|D A|Bm F#m|G D|G A|D|D"},
+	{"id": "fur_elise", "name": "К Элизе", "author": "Бетховен", "file": "res://assets/tracks/fur_elise.ogg",
+		"bpm": 140.0, "bars": 20, "offset": 0.01, "key": 9, "scale": "chromatic",
+		"chords": "Am|Am|Am|E Am|Am|E|Am|E Am|Am|E|Am|E Am|Am|E|Am|E Am|Am|E|Am|Am"},
+	{"id": "turkish_march", "name": "Турецкий марш", "author": "Моцарт", "file": "res://assets/tracks/turkish_march.ogg",
+		"bpm": 150.0, "bars": 22, "offset": 0.01, "key": 9, "scale": "chromatic",
+		"chords": "Am|Am|Am|Am|Am|E|Am|C|G|Em B7|Em|E|Am|Am|E|Am|C|G|Em B7|Em|Am|Am"},
+	{"id": "bumblebee", "name": "Полёт шмеля", "author": "Римский-Корсаков", "file": "res://assets/tracks/bumblebee.ogg",
+		"bpm": 150.0, "bars": 17, "offset": 0.01, "key": 9, "scale": "chromatic",
+		"chords": "E|E|E|E|E|E|Am|Am|Am|Am|E|E|E|E|E|Am|Am"},
 ]
-## Лад тональности из имени файла → гамма джема.
 const MODE_SCALES := {"minor": "minor_pentatonic", "major": "major_pentatonic"}
 const MINOR_WORDS := ["m", "min", "minor", "moll"]
 
 static var _user: Array[Dictionary] = []
-static var _memory := {}               ## файл → {bpm, start, key, scale}
+static var _memory := {}
 
 
 static func all() -> Array:
@@ -58,7 +64,6 @@ static func user_dir() -> String:
 	return OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS).path_join(DIR_NAME)
 
 
-## Перечитать папку своих треков (создаёт её, если можно).
 static func scan_user() -> void:
 	var memory: Variant = Songs.load_json(MEMORY_FILE)
 	_memory = memory if memory is Dictionary else {}
@@ -73,8 +78,6 @@ static func scan_user() -> void:
 			_user.append(user_track(file, _memory.get(file, {})))
 
 
-## Свой трек по имени файла: найденное в имени, поверх — запомненное раньше. bpm 0 — темп не известен,
-## key −1 — тональность не известна.
 static func user_track(file: String, remembered: Dictionary) -> Dictionary:
 	var info := parse_name(file.get_basename())
 	info.merge(remembered, true)
@@ -83,8 +86,6 @@ static func user_track(file: String, remembered: Dictionary) -> Dictionary:
 		"offset": 0.0, "bars": 0, "key": int(info.get("key", -1)), "scale": String(info.get("scale", "")), "chords": ""}
 
 
-## Темп и тональность из имени: «120bpm» / «95 BPM»; тональность — отдельным словом: Am, F#m, Bb, C major,
-## E minor. Одиночная буква без диеза и лада в самом начале имени не считается (это артикль: «A Day…»).
 static func parse_name(name: String) -> Dictionary:
 	var out := {}
 	var tempo := RegEx.create_from_string("(?i)(\\d{2,3}(?:[.,]\\d+)?)\\s*bpm").search(name)
@@ -103,7 +104,6 @@ static func parse_name(name: String) -> Dictionary:
 	return out
 
 
-## Запомнить найденное для своего трека (тап-темп, тональность).
 static func remember(track: Dictionary, save := true) -> void:
 	if not track.get("user", false):
 		return
@@ -113,7 +113,6 @@ static func remember(track: Dictionary, save := true) -> void:
 		Songs.save_json(MEMORY_FILE, _memory)
 
 
-## Поток трека: встроенный — ресурс игры, свой — файл с диска (null, если не читается).
 static func load_stream(track: Dictionary) -> AudioStream:
 	var path := String(track["file"])
 	if path.begins_with("res://"):
@@ -129,11 +128,9 @@ static func load_stream(track: Dictionary) -> AudioStream:
 	return stream
 
 
-## Первая сильная доля файла: тап начат с «раз» на секунде from — раньше неё целые такты.
 static func first_downbeat(from: float, bpm: float) -> float:
 	return snappedf(fposmod(from, 60.0 / bpm * Timing.BEATS_PER_BAR), 0.001)
 
 
-## Сколько тактов своего трека влезает от сильной доли до конца файла.
 static func fit_bars(seconds: float, start: float, bar: float) -> int:
 	return maxi(0, floori((seconds - start - TAIL) / bar))

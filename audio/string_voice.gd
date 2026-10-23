@@ -1,26 +1,21 @@
 class_name StringVoice
 extends Node
-## Одна струна: одна нота за раз (аккорд-двузвучие — несколько голосов этой струны).
-## Нота звенит, пока её не заглушат (mute — короткий спад) или не затухнет сама.
-## Высота — подтяжка ближайшего сэмпла (pitch_scale); легато, слайд и бенд меняют её, не начиная ноту заново.
-## Слайд (slur с glide) — высота не прыгает, а съезжает к новой ноте со скоростью GLIDE_SPEED, как палец по ладам.
-## Команды — события гитары {kind, string, midis, amount}: pluck, slur, mute, dead, bend.
 
-const RELEASE := 0.06       ## секунд спада при глушении
-const BEND_SPEED := 16.0    ## полутонов в секунду — с такой скоростью тянется бенд
-const GLIDE_SPEED := 30.0   ## полутонов в секунду — с такой скоростью едет слайд
+const RELEASE := 0.06
+const BEND_SPEED := 16.0
+const GLIDE_SPEED := 30.0
 const VOLUME_DB := -1.0
 
 var bank: SampleBank
-var silent := false         ## без звукового вывода (headless) голоса не создаются
+var silent := false
 var _players: Array[AudioStreamPlayer] = []
-var _active := 0            ## сколько голосов звучит
+var _active := 0
 var _sample_midis: Array = []
 var _midis: Array = []
 var _bend := 0.0
 var _bend_target := 0.0
-var _glide := 0.0           ## слайд: на сколько полутонов звук ещё не доехал до ноты
-var _fade := -1.0           ## > 0 — идёт спад после глушения
+var _glide := 0.0
+var _fade := -1.0
 
 
 func pluck(event: Dictionary) -> void:
@@ -38,7 +33,6 @@ func dead(event: Dictionary) -> void:
 		_players[0].pitch_scale = float(SampleBank.DEAD_PITCH[event["string"]])
 
 
-## Легато: звучащая струна переходит на новую ноту без нового щипка.
 func slur(event: Dictionary) -> void:
 	var midis: Array = event["midis"]
 	if _active == 0 or _sample_midis.is_empty():
@@ -109,7 +103,6 @@ func _apply_pitch() -> void:
 		_players[i].pitch_scale = pow(2.0, (float(_midis[i]) + _bend + _glide - float(_sample_midis[i])) / 12.0)
 
 
-## Аккорд звучит тише каждой ноты, чтобы в сумме не громче одиночной.
 func _volume() -> float:
 	return VOLUME_DB - 3.0 * (maxi(_active, 1) - 1)
 

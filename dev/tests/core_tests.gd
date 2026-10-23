@@ -1,6 +1,5 @@
 class_name CoreTests
 extends TestSuite
-## Основа без сцены: сетка времени, звучащий лад, строй (тональность, гаммы, позиции), окно прощения.
 
 
 func test_judge_windows() -> void:
@@ -74,7 +73,6 @@ func test_leniency_switch_fret() -> void:
 	eq(played, ["3:mid@1.0"], "перестановка пальца в окне")
 
 
-## Гитара на ручных часах (t = 1.0): действия → засчитанные удары «лад:струна@время».
 func _strum_case(actions: Callable) -> Array:
 	var clock := Conductor.new()
 	clock.set_manual(1.0)

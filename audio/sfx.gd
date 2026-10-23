@@ -1,13 +1,10 @@
 class_name Sfx
-## Звуки стиля, собранные кодом: взлёт ранга — шумовой «вжух» вверх и звонкий удар, тем выше, чем выше ранг;
-## падение — глухой удар вниз.
 
 const RATE := 44100
 const UP := {"seconds": 0.5, "sweep_from": 300.0, "sweep_to": 1400.0, "ping": 1600.0, "per_rank": 0.08, "gain": 0.55}
 const DOWN := {"seconds": 0.35, "from": 180.0, "to": 55.0, "gain": 0.7}
 
 
-## Взлёт на ранг rank (0…): частоты растут на per_rank за ранг.
 static func rank_up(rank: int) -> AudioStreamWAV:
 	var lift := 1.0 + float(UP["per_rank"]) * rank
 	var out := PackedFloat32Array()
@@ -25,10 +22,18 @@ static func rank_up(rank: int) -> AudioStreamWAV:
 		var noise := rng.randf_range(-1.0, 1.0)
 		var air := (noise - prev) * 0.5 * sin(PI * minf(k * 1.6, 1.0)) * (1.0 - k)
 		prev = noise
-		var sweep := sin(phase) * 0.35 * minf(t * 30.0, 1.0) * (1.0 - k)
-		var hit := (sin(ping) + 0.5 * sin(ping * 1.5)) * exp(-maxf(0.0, t - 0.12) * 14.0) * (1.0 if t > 0.12 else 0.0)
-		out[i] = (air * 0.6 + sweep + hit * 0.45) * float(UP["gain"])
+		out[i] = (air * 0.6 + _sweep(phase, t, k) + _ping(ping, t) * 0.45) * float(UP["gain"])
 	return Backing.to_wav(out)
+
+
+static func _sweep(phase: float, t: float, k: float) -> float:
+	return sin(phase) * 0.35 * minf(t * 30.0, 1.0) * (1.0 - k)
+
+
+static func _ping(phase: float, t: float) -> float:
+	if t <= 0.12:
+		return 0.0
+	return (sin(phase) + 0.5 * sin(phase * 1.5)) * exp(-(t - 0.12) * 14.0)
 
 
 static func rank_down() -> AudioStreamWAV:

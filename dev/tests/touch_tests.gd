@@ -1,6 +1,5 @@
 class_name TouchTests
 extends TestSuite
-## Сенсорное управление: какие действия ввода рождают касания и скольжения пальцев.
 
 const MIN_BUTTON := Vector2(100, 60)
 
@@ -56,15 +55,15 @@ func test_swipe_across_strings_strums() -> void:
 
 
 func test_gap_between_strings_is_dead_zone() -> void:
-	var mid: Rect2 = TouchPad.button_at("song", _center("strike_mid"))["rect"]
+	var mid: Rect2 = TouchButtons.at("song", _center("strike_mid"))["rect"]
 	_touch(0, Vector2(mid.get_center().x, mid.position.y - 7), true)
 	eq(sent, [], "в промежуток между струнами — не удар")
 	check(mid.size.y >= 120.0 and mid.size.x >= 200.0, "кнопка струны крупная")
 
 
 func test_strings_stack_like_the_highway() -> void:
-	var high: Rect2 = TouchPad.button_at("song", _center("strike_high"))["rect"]
-	var low: Rect2 = TouchPad.button_at("song", _center("strike_low"))["rect"]
+	var high: Rect2 = TouchButtons.at("song", _center("strike_high"))["rect"]
+	var low: Rect2 = TouchButtons.at("song", _center("strike_low"))["rect"]
 	check(high.position.y < low.position.y, "верхняя струна сверху, как на дорожке")
 	check(not high.intersects(Layout.HIGHWAY_TOUCH), "струны не залезают на дорожку")
 
@@ -78,7 +77,7 @@ func test_chord_with_two_hands() -> void:
 
 func test_menu_row_starts_at_once() -> void:
 	Game.state = "menu"
-	var second: Rect2 = TouchPad.list_rows("menu")[1]["rect"]
+	var second: Rect2 = TouchLists.rows("menu")[1]["rect"]
 	_touch(0, second.get_center(), true)
 	eq(sent, [], "пока палец на строке — ничего: вдруг это прокрутка")
 	_touch(0, second.get_center(), false)
@@ -89,7 +88,7 @@ func test_menu_row_starts_at_once() -> void:
 func test_shop_row_selects_then_takes() -> void:
 	Game.state = "shop"
 	Game.shop_index = 0
-	var second: Rect2 = TouchPad.list_rows("shop")[1]["rect"]
+	var second: Rect2 = TouchLists.rows("shop")[1]["rect"]
 	_touch(0, second.get_center(), true)
 	_touch(0, second.get_center(), false)
 	eq(Game.shop_index, 1, "в магазине касание выбирает гитару")
@@ -102,46 +101,44 @@ func test_shop_row_selects_then_takes() -> void:
 
 func test_buttons_only_when_needed() -> void:
 	Game.needs = {"bend": false, "positions": false}
-	var actions := TouchPad.buttons("song").map(func(b: Dictionary) -> String: return b.get("action", ""))
+	var actions := TouchButtons.buttons("song").map(func(b: Dictionary) -> String: return b.get("action", ""))
 	check(not actions.has("position_up"), "песне без сдвига руки — нет кнопок позиции")
 	Game.needs = {"bend": true, "positions": true}
-	actions = TouchPad.buttons("song").map(func(b: Dictionary) -> String: return b.get("action", ""))
+	actions = TouchButtons.buttons("song").map(func(b: Dictionary) -> String: return b.get("action", ""))
 	check(actions.has("position_up"), "нужен сдвиг — кнопки есть")
 	check(not actions.has("bend"), "кнопки бенда нет вовсе — бенд жестом по струне")
 
 
 func test_jam_more_panel() -> void:
 	Game.more = false
-	var actions := TouchPad.buttons("jam").map(func(b: Dictionary) -> String: return b.get("action", ""))
+	var actions := TouchButtons.buttons("jam").map(func(b: Dictionary) -> String: return b.get("action", ""))
 	check(actions.has("record") and actions.has("backing") and not actions.has("scale"), "сначала — только запись и музыка")
 	Game.more = true
-	actions = TouchPad.buttons("jam").map(func(b: Dictionary) -> String: return b.get("action", ""))
+	actions = TouchButtons.buttons("jam").map(func(b: Dictionary) -> String: return b.get("action", ""))
 	check(actions.has("scale") and actions.has("metronome") and actions.has("tap_tempo"), "«Ещё» открывает остальное")
 	Game.more = false
 
 
 func test_jam_buttons() -> void:
 	Game.state = "jam"
-	eq(TouchPad.button_at("jam", Vector2(395, 82)).get("action"), "record", "кнопка записи в джеме")
-	eq(TouchPad.button_at("song", Vector2(395, 82)), {}, "в песне её нет")
+	eq(TouchButtons.at("jam", Vector2(395, 82)).get("action"), "record", "кнопка записи в джеме")
+	eq(TouchButtons.at("song", Vector2(395, 82)), {}, "в песне её нет")
 
 
 func test_metronome_toggle_buttons() -> void:
 	Game.state = "jam"
 	Game.more = true
-	eq(TouchPad.button_at("jam", _center("metronome")).get("lit"), "metronome", "кнопка метронома подсвечивается по Game.metronome")
+	eq(TouchButtons.at("jam", _center("metronome")).get("lit"), "metronome", "кнопка метронома подсвечивается по Game.metronome")
 	Game.more = false
 
 
-## На сенсоре (а кнопки есть только там) ни одна кнопка не налезает на другую и не меньше пальца:
-## MIN_BUTTON — около 9,5 × 5,7 мм на телефоне с экраном 6,5".
 func test_buttons_fit_a_finger() -> void:
 	var was_touch := Game.touch
 	Game.touch = true
 	for more: bool in [false, true]:
 		Game.more = more
 		for state: String in ["menu", "jam", "song", "shop", "results"]:
-			var buttons := TouchPad.buttons(state)
+			var buttons := TouchButtons.buttons(state)
 			for i in buttons.size():
 				var a: Rect2 = buttons[i]["rect"]
 				var name := String(buttons[i].get("action", "row"))
@@ -158,13 +155,13 @@ func test_finger_scroll_reaches_every_song() -> void:
 	Game.touch = true
 	Game.state = "menu"
 	Game.scroll["menu"] = 0.0
-	var rows: Array = TouchPad.list_rows("menu")
+	var rows: Array = TouchLists.rows("menu")
 	var top: Rect2 = rows[0]["rect"]
 	_touch(0, top.get_center(), true)
 	_drag(0, top.get_center() + Vector2(4, -2000))
 	_touch(0, top.get_center() + Vector2(4, -2000), false)
 	eq(sent, [], "листал — песню не запустил")
-	var last: Dictionary = TouchPad.list_rows("menu").back()
+	var last: Dictionary = TouchLists.rows("menu").back()
 	eq(int(last["index"]), Songs.all().size() - 1, "пролистал до последней песни")
 	_touch(0, (last["rect"] as Rect2).get_center(), true)
 	_touch(0, (last["rect"] as Rect2).get_center(), false)
@@ -176,10 +173,10 @@ func test_finger_scroll_reaches_every_song() -> void:
 
 func test_bend_by_pulling_string() -> void:
 	var at := _center("strike_mid")
-	var tone := TouchPad.BEND_DEAD + TouchPad.BEND_RANGE           ## столько вбок — бенд на тон
+	var tone := BendGesture.DEAD + BendGesture.RANGE
 	_touch(0, at, true)
 	_drag(0, at + Vector2(-3, 1))
-	_drag(0, at + Vector2(-(TouchPad.BEND_DEAD + TouchPad.BEND_RANGE * 0.5), 5))
+	_drag(0, at + Vector2(-(BendGesture.DEAD + BendGesture.RANGE * 0.5), 5))
 	_drag(0, at + Vector2(-tone, 6))
 	_drag(0, at + Vector2(-tone * 3.0, 8))
 	_drag(0, at + Vector2(-5, 4))
@@ -193,7 +190,6 @@ func test_bend_by_pulling_string() -> void:
 func test_wiggle_on_string_is_vibrato() -> void:
 	var at := _center("strike_high")
 	_touch(0, at, true)
-	# палец ходит туда-сюда через точку удара, как при вибрато
 	for x: float in [4.0, 10.0, 16.0, 10.0, 4.0, -4.0, -10.0, -16.0, -10.0, -4.0, 4.0, 10.0, 16.0]:
 		_drag(0, at + Vector2(x, 1))
 	_touch(0, at + Vector2(16, 1), false)
@@ -214,7 +210,6 @@ func test_strum_is_not_bend() -> void:
 	eq(sent.count("strike_low ↓"), 1, "но удары по всем струнам есть")
 
 
-## Для показа: где пальцы, кто тянет струну и откуда, куда проехал слайд.
 func test_pad_shows_fingers_pull_and_slide() -> void:
 	var slides: Array = []
 	pad.slid.connect(func(from: String, to: String) -> void: slides.append([from, to]))
@@ -225,15 +220,15 @@ func test_pad_shows_fingers_pull_and_slide() -> void:
 	_touch(1, from, true)
 	_drag(1, from + Vector2(40, 0))
 	var pull := pad.pull_of("mid")
-	eq([pull["from"], pull["pos"], pull["on"]], [from, from + Vector2(40, 0), true], "тянет среднюю от точки удара")
-	eq(pad.pull_of("high"), {}, "верхнюю никто не тянет")
+	eq([pull.from, pull.pos, pull.on], [from, from + Vector2(40, 0), true], "тянет среднюю от точки удара")
+	check(pad.pull_of("high") == null, "верхнюю никто не тянет")
 	eq(pad.points.size(), 2, "два пальца на экране")
 	_touch(1, from + Vector2(40, 0), false)
-	eq([pad.pull_of("mid"), pad.points.size()], [{}, 1], "палец поднят — не тянет и не виден")
+	check(pad.pull_of("mid") == null and pad.points.size() == 1, "палец поднят — не тянет и не виден")
 
 
 func _center(action: String) -> Vector2:
-	for button: Dictionary in TouchPad.buttons(Game.state):
+	for button: Dictionary in TouchButtons.buttons(Game.state):
 		if button.get("action") == action:
 			return (button["rect"] as Rect2).get_center()
 	return Vector2(-100, -100)

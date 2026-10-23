@@ -1,18 +1,15 @@
 class_name Looper
 extends RefCounted
-## Лупер джема. Запись идёт ровно один круг (length секунд — BARS тактов текущего темпа) с момента
-## нажатия; записанный слой сразу играет по кругу своим голосом гитары. Время — часы песни (Conductor.now()).
-## Событие слоя — событие гитары {kind, string, midis, amount} и t — секунда круга.
 
 const MAX_LAYERS := 4
 const BARS := 4
 
 var length := 0.0
-var layers: Array[Array] = []           ## события каждого слоя по возрастанию t
+var layers: Array[Array] = []
 var recording := false
 var _rec_start := 0.0
 var _rec: Array[Dictionary] = []
-var _last := -1.0                       ## время песни на прошлом tick
+var _last := -1.0
 
 
 func reset() -> void:
@@ -35,7 +32,6 @@ func cancel_recording() -> void:
 	_rec.clear()
 
 
-## Доля записанного круга (0..1).
 func progress(now: float) -> float:
 	return clampf((now - _rec_start) / length, 0.0, 1.0) if recording else 0.0
 
@@ -54,8 +50,6 @@ func capture(event: Dictionary, now: float) -> void:
 		_rec.append(item)
 
 
-## Время дошло до now: закрывает законченную запись и возвращает, что сыграть слоям
-## с прошлого tick: [{layer, event}].
 func tick(now: float) -> Array[Dictionary]:
 	if recording and now >= _rec_start + length:
 		recording = false

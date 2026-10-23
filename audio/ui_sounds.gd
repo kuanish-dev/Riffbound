@@ -1,9 +1,5 @@
 class_name UiSounds
 extends Node
-## Звуки отклика на действия игрока, собранные кодом: SOUNDS — имя → рецепт. Рецепт — ноты (at — когда, hz → to —
-## высота с глиссандо, len — длина, wave — sine / square / triangle / saw) и шум (len, from → to — срез фильтра)
-## с общей громкостью gain. Играет пул из POOL плееров по кругу, чтобы быстрые звуки не обрывали друг друга.
-## Звуки собираются при первом вызове; без звука (headless) — молчит.
 
 const RATE := 44100
 const POOL := 6
@@ -79,7 +75,6 @@ func stop() -> void:
 		player.stop()
 
 
-## Звук по рецепту.
 static func render(spec: Dictionary) -> AudioStreamWAV:
 	var noise: Dictionary = spec.get("noise", {})
 	var total := float(noise.get("len", 0.0))
@@ -123,7 +118,6 @@ static func _wave(kind: String, phase: float) -> float:
 	return sin(TAU * phase)
 
 
-## Шум через однополюсный фильтр, срез которого едет from → to.
 static func _add_noise(out: PackedFloat32Array, noise: Dictionary) -> void:
 	var length := float(noise["len"])
 	var gain := float(noise["gain"])

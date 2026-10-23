@@ -1,7 +1,5 @@
 class_name MusicTests
 extends TestSuite
-## Музыка: переменный темп, треки (встроенные петли и разбор имён своих файлов), подложка из сэмплов,
-## выбор сэмпла гитары. Файлы не пишутся.
 
 
 func after_all() -> void:
@@ -36,7 +34,7 @@ func test_user_track_memory_wins() -> void:
 
 func test_tap_tempo() -> void:
 	var taps: Array[float] = [10.0, 10.5, 11.01, 11.49, 12.0, 12.5]
-	eq(roundi(Main.tap_bpm(taps)), 120, "шесть ударов по полсекунды — 120 bpm")
+	eq(roundi(TapTempo.bpm_of(taps)), 120, "шесть ударов по полсекунды — 120 bpm")
 	eq(Tracks.first_downbeat(9.3, 120.0), 1.3, "тап с «раз» на 9.3 с — первая сильная доля на 1.3 с")
 
 
@@ -85,10 +83,10 @@ func test_metronome_clicks_on_beats() -> void:
 
 
 func test_music_choices() -> void:
-	var choices := Main.music_choices()
+	var choices := MusicLoader.choices()
 	eq(choices.size(), Backing.STYLES.size() + Tracks.all().size(), "стили и треки по кругу")
-	eq(Main.music("funked_up")["kind"], "track", "трек")
-	eq(Main.music("нет такой")["id"], Backing.STYLES[0]["id"], "неизвестная подложка — первый стиль")
+	eq(MusicLoader.find("funked_up")["kind"], "track", "трек")
+	eq(MusicLoader.find("нет такой")["id"], Backing.STYLES[0]["id"], "неизвестная подложка — первый стиль")
 
 
 func test_nearest_guitar_sample() -> void:

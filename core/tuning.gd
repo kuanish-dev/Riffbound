@@ -1,9 +1,5 @@
 class_name Tuning
 extends RefCounted
-## Строй гитары: тональность, гамма и позиция руки на грифе. Кнопка (струна + лад) — ступень гаммы:
-## следующая струна начинается через NOTES_PER_STRING ступеней («три ноты на струну»), а 4-й лад
-## (мизинец) достаёт первую ноту соседней струны — как на настоящей гитаре, соседние струны перекрываются.
-## Позиция сдвигает всю сетку на одну струну. Высоты — MIDI-номера.
 
 const SCALES := [
 	{"id": "minor_pentatonic", "name": "минорная пентатоника", "steps": [0, 3, 5, 7, 10]},
@@ -17,17 +13,16 @@ const SCALES := [
 ]
 const KEY_NAMES := ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 const SOLFEGE := ["до", "до#", "ре", "ре#", "ми", "фа", "фа#", "соль", "соль#", "ля", "ля#", "си"]
-const BASE_MIDI := 48           ## C3: тоника на нижней струне в позиции 0 — BASE_MIDI + key
+const BASE_MIDI := 48
 const NOTES_PER_STRING := 3
-const MIDI_MIN := 40            ## E2 — диапазон сэмплов гитары
-const MIDI_MAX := 88            ## E6
-const BEND_SEMITONES := 2.0     ## бенд силой 1 — на тон вверх (пробел на клавиатуре)
-const BEND_MAX := 1.5           ## сильнее всего струну можно подтянуть на полтора тона (тяга пальцем на сенсоре)
-## Строй по умолчанию — ми, минорная пентатоника (с него начинается джем).
+const MIDI_MIN := 40
+const MIDI_MAX := 88
+const BEND_SEMITONES := 2.0
+const BEND_MAX := 1.5
 const SONG := {"key": 4, "scale": "minor_pentatonic"}
 
-var key := 4                    ## индекс в KEY_NAMES
-var scale := 0                  ## индекс в SCALES
+var key := 4
+var scale := 0
 var position := 0
 
 
@@ -53,7 +48,6 @@ func midi(fret: String, string: String) -> int:
 	return _midi_at(fret, string, position)
 
 
-## Высоты ноты на струне (аккорд — несколько, глушняк — ни одной).
 func midis(note: String, string: String) -> Array[int]:
 	var out: Array[int] = []
 	for fret: String in Notes.parts(note):
@@ -61,7 +55,6 @@ func midis(note: String, string: String) -> Array[int]:
 	return out
 
 
-## Влезают ли все девять нот позиции в диапазон сэмплов.
 func fits(at_position: int) -> bool:
 	for string: String in Notes.STRINGS:
 		for fret: String in Notes.FRETS:
@@ -78,7 +71,6 @@ func shift_position(delta: int) -> bool:
 	return true
 
 
-## Тональность и гамма разом (трек джема): позиция остаётся, если влезает в диапазон.
 func set_key(new_key: int, scale_id: String) -> void:
 	key = new_key
 	scale = scale_index(scale_id)
@@ -95,7 +87,6 @@ func shift_key(delta: int) -> void:
 	_keep_in_range()
 
 
-## Минорная ли гамма (есть малая терция) — от этого зависит гармония подложки.
 func is_minor() -> bool:
 	return steps().has(3)
 
@@ -108,7 +99,6 @@ static func hz(midi_note: int) -> float:
 	return 440.0 * pow(2.0, (midi_note - 69) / 12.0)
 
 
-## «E3».
 static func note_name(midi_note: int) -> String:
 	@warning_ignore("integer_division")
 	return "%s%d" % [KEY_NAMES[posmod(midi_note, 12)], midi_note / 12 - 1]

@@ -1,16 +1,10 @@
 class_name GuitarVoices
 extends Node
-## Голос гитары: по StringVoice на струну. Свой у живого игрока и у каждого слоя лупера.
-## Событие гитары {kind, string, midis, amount} уходит голосу струны методом kind
-## (pluck, slur, mute, dead, bend). Все голоса звучат через шину LEAD_BUS; её эффекты — звук гитары
-## из магазина (set_tone, «fx» скина Shop.SKINS), после них всегда TAIL_FX.
 
 const LEAD_BUS := "Lead"
-## Эффект — {type: класс эффекта, остальное — его свойства}, например {"type": "AudioEffectDelay",
-## "tap1_delay_ms": 450.0}. TAIL_FX — после звука любой гитары: лимитер, чтобы громкие звуки не хрипели.
 const TAIL_FX := [{"type": "AudioEffectHardLimiter", "ceiling_db": -1.0}]
 
-var strings := {}         ## струна → StringVoice
+var strings := {}
 
 
 func setup(bank: SampleBank) -> void:
@@ -34,7 +28,6 @@ func silence() -> void:
 		(strings[string] as StringVoice).silence()
 
 
-## Звук гитары: эффекты шины заново — fx по порядку, затем TAIL_FX. Без шины (headless) — ничего.
 static func set_tone(fx: Array) -> void:
 	var bus := AudioServer.get_bus_index(LEAD_BUS)
 	if bus == -1:
