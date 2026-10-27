@@ -21,6 +21,16 @@ static func notes(events: Array) -> Array[Dictionary]:
 	return _one_per_slot(out)
 
 
+static func fit_strings(notes: Array[Dictionary], tuning: Tuning) -> void:
+	var top := tuning.top_position()
+	for note in notes:
+		if int(note["pos"]) <= top:
+			continue
+		var reach := Notes.STRINGS.find(note["string"]) + int(note["pos"])
+		note["pos"] = top
+		note["string"] = Notes.STRINGS[mini(reach - top, Notes.STRINGS.size() - 1)]
+
+
 static func _apply(event: Dictionary, slot: int, out: Array[Dictionary], sounding: Dictionary) -> void:
 	var string := String(event["string"])
 	if event.has("amount"):

@@ -12,6 +12,14 @@ func _init(fretboard: Fretboard, hud: Hud) -> void:
 	fretboard.bent.connect(_on_bent)
 
 
+func strings_to_strike() -> Array:
+	if _judging():
+		var near := Game.performance.strings_near(Game.conductor.player_time())
+		if not near.is_empty():
+			return near
+	return [Game.tuning.strings[0]]
+
+
 func on_voiced(note: String, string: String, _corrected: bool) -> void:
 	var kind := "dead" if note == Notes.MUTE else "pluck"
 	_perform({"kind": kind, "string": string, "fret": note, "pos": Game.tuning.position,

@@ -24,12 +24,19 @@ const SONG := {"key": 4, "scale": "minor_pentatonic"}
 var key := 4
 var scale := 0
 var position := 0
+var strings: Array = Notes.STRINGS.duplicate()
 
 
 static func song() -> Tuning:
 	var tuning := Tuning.new()
 	tuning.key = int(SONG["key"])
 	tuning.scale = scale_index(String(SONG["scale"]))
+	return tuning
+
+
+static func one_string() -> Tuning:
+	var tuning := song()
+	tuning.strings = [Notes.STRINGS[0]]
 	return tuning
 
 
@@ -56,12 +63,19 @@ func midis(note: String, string: String) -> Array[int]:
 
 
 func fits(at_position: int) -> bool:
-	for string: String in Notes.STRINGS:
+	for string: String in strings:
 		for fret: String in Notes.FRETS:
 			var m := _midi_at(fret, string, at_position)
 			if m < MIDI_MIN or m > MIDI_MAX:
 				return false
 	return true
+
+
+func top_position() -> int:
+	var top := 0
+	while fits(top + 1):
+		top += 1
+	return top
 
 
 func shift_position(delta: int) -> bool:

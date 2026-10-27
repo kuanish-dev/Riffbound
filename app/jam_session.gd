@@ -1,7 +1,7 @@
 class_name JamSession
 extends RefCounted
 
-var tuning := Tuning.song()
+var tuning := Tuning.one_string()
 var _bpm := Timing.DEFAULT_BPM
 var _tap := TapTempo.new()
 var _asked_permissions := false

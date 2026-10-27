@@ -63,6 +63,22 @@ func test_missed_chord_is_one_mistake() -> void:
 	eq([p.misses, p.lives(), p.failed], [2, 1, false], "аккорд мимо — одна ошибка")
 
 
+func test_strike_picks_nearest_note_strings() -> void:
+	var p := _perf([{"low": "1 - - - 2 - - -", "mid": "1 - - - - - - -", "high": "- - - - - - 3 -"}])
+	eq(p.strings_near(_t(LEAD) - 0.1), ["low", "mid"] as Array[String], "у аккорда — обе струны")
+	eq(p.strings_near(_t(LEAD + 5)), ["low"] as Array[String], "ближе нота на нижней")
+	eq(p.strings_near(_t(LEAD + 6) - 0.05), ["high"] as Array[String], "а тут — на верхней")
+
+
+func test_jam_one_string_song_fits_three_strings() -> void:
+	var tuning := Tuning.song()
+	var top := tuning.top_position()
+	var notes: Array[Dictionary] = [{"string": "low", "pos": top + 2}, {"string": "low", "pos": 1}]
+	LayerSong.fit_strings(notes, tuning)
+	eq([notes[0]["string"], notes[0]["pos"]], ["high", top], "высокая позиция джема — верхняя струна песни")
+	eq([notes[1]["string"], notes[1]["pos"]], ["low", 1], "достижимая — как была")
+
+
 func test_wrong_note_breaks_streak() -> void:
 	var p := _perf([{"low": "1 - 2 - - - - -"}])
 	p.play("low", 52, _t(LEAD), false)

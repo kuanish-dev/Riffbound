@@ -9,7 +9,7 @@ const CELL_EDGE := Color(0.5, 0.48, 0.6)
 static func draw(ci: CanvasItem) -> void:
 	var map := Layout.MAP
 	ci.draw_rect(map, Color(Ink.PANEL, 0.92))
-	var strings := Notes.STRINGS.duplicate()
+	var strings := Game.tuning.strings.duplicate()
 	strings.reverse()
 	var cell := Vector2(map.size.x / (Notes.FRETS.size() + 1.0), map.size.y / strings.size())
 	var chord := Harmony.parse(ChordGuide.now())
@@ -19,7 +19,7 @@ static func draw(ci: CanvasItem) -> void:
 
 
 static func _draw_row(ci: CanvasItem, string: String, row: Rect2, cell_w: float, chord: Dictionary) -> void:
-	var key := InputConfig.key_label(InputConfig.strike_action(string))
+	var key := InputConfig.key_label("strike")
 	Glyph.text(ci, Vector2(row.position.x + 12, row.position.y + row.size.y * 0.5 + 6), key, 18, Ink.DIM)
 	for c in Notes.FRETS.size():
 		var box := Rect2(row.position.x + (c + 1) * cell_w + 4, row.position.y + 4, cell_w - 8, row.size.y - 8)

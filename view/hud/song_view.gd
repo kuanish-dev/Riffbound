@@ -34,7 +34,7 @@ static func _draw_lives(ci: CanvasItem, right: float) -> void:
 
 func _draw() -> void:
 	draw_top(self)
-	Lanes.draw(self, strikes, Cue.next(), t)
+	Lanes.draw(self, strikes)
 	var now := Lanes.slot_now()
 	if Game.needs.get("positions", false):
 		_draw_riffs(now)

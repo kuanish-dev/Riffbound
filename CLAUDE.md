@@ -51,9 +51,13 @@
   Новая песня — с аккордом на каждый такт (`test_song_chords`).
 - Код — GPL-3.0 (`LICENSE`, кладётся и в APK). Ассеты: только CC0 / OFL / CC-BY с упоминанием, всё в `CREDITS.md`; `assets/` пересобирается `tools/build_assets.py`
   (исходники не в репозитории — ссылки в CREDITS). Чужие песни с авторским правом не добавлять.
-- Лады A S D F (1–4), удары J K L, бенд — пробел (на тон); на сенсоре бенд любой высоты до `Tuning.BEND_MAX` —
+- Лады A S D F (1–4), удар — одна кнопка J (на сенсоре одна большая), струну выбирает игра: `Fretboard.pick_strings` →
+  `GuitarRouter.strings_to_strike` — в песне струны ближайшей ждущей ноты (`SongJudge.strings_near`, у аккорда все),
+  в джеме и магазине — первая струна строя. Строй джема — одна нижняя струна (`Tuning.one_string`, `Tuning.strings`):
+  позиции ведут её по всему диапазону, а своя песня из лупа раскладывается на три струны (`LayerSong.fit_strings`).
+  Бенд — пробел (на тон); на сенсоре бенд любой высоты до `Tuning.BEND_MAX` —
   тяга пальцем (`bend_pull` с силой), вибрато — покачивание, слайд — палец по ладам (`slide`, высота съезжает в `StringVoice`). Звучит верхний из зажатых ладов (как на гитаре);
-  аккорд — один лад и удар по нескольким струнам. 4-й лад = 1-й лад следующей струны (струны перекрываются).
+  аккорд — один лад и удар (игра бьёт по всем струнам аккорда). 4-й лад = 1-й лад следующей струны (струны перекрываются).
 - Время игры — только из `Conductor` (позиция звука), не из кадров. Удары оцениваются по `player_time()`.
 - Разработка (бот, тесты, снимки) — только в `dev/`; она не сохраняет рекорды, песни и магазин (`Songs.persist = false`;
   тесты, которые меняют сохраняемое, ставят его сами).
@@ -63,7 +67,8 @@
 - Интерфейс минимальный (игрок не должен путаться): на экране только нужное сейчас. Подсказка клавиш — одна строка
   `KeyControls.HINTS` на режим; что жать перед нотой — `Cue.next()` (мигают клавиши и кнопки); сенсорные кнопки прячутся
   по `needs` (`Game.needs` — умения песни) и `more` (панель «Ещё» джема, `Game.more`). На сенсоре бенд — жест
-  (удар по струне и тяга вбок, `BendGesture`), списки листаются пальцем (`Game.scroll`), строки — по отпусканию. Новую кнопку или надпись —
+  (удар по струне и тяга вбок, `BendGesture`), списки листаются пальцем (`Game.scroll`), строки — по отпусканию; песню в меню касание только выбирает,
+  играть — кнопка ▶ строки (`play` в `TouchLists.rows`), иначе прокрутка запускала песни. Новую кнопку или надпись —
   только если без неё не сыграть; второстепенное — в «Ещё».
 - Каждое действие игрока звучит: команда без исхода — строка в `Main.COMMAND_SOUNDS`, с исходом — `feedback.say(звук, текст)`
   в методе (не `hud.toast` напрямую). Имена звуков проверяет `SoundTests` (и в таблицах, и в вызовах в коде).
@@ -163,7 +168,7 @@ perl -e 'alarm 150; exec @ARGV' godot --path . -- --screenshot=<png> --jam --bac
 perl -e 'alarm 150; exec @ARGV' godot --path . -- --screenshot=<png> --jam --touch --gesture=vibrato --at=2.3   # жесты: Gestures.SCRIPTS
 perl -e 'alarm 120; exec @ARGV' godot --path . -- --tones                  # громкость звуков гитар (динамики молчат)
 # GIF для README (docs/media; docs/.gdignore прячет папку от Godot и APK): кадры — Movie Maker Godot, GIF — ffmpeg
-godot --path . --write-movie <папка>/song.avi --fixed-fps 30 -- --screenshot=<png> --song=5 --touch --autoplay --at=18
+godot --path . --write-movie <папка>/song.avi --fixed-fps 60 -- --screenshot=<png> --song=10 --touch --difficulty=expert --autoplay --at=18   # на 30 кадрах бот промахивается и проваливает песню
 godot --path . --write-movie <папка>/jam.avi --fixed-fps 30 -- --screenshot=<png> --jam --touch --backing=rock_theme_3 --gesture=demo --at=7.6
 ffmpeg -ss 5.5 -t 9.5 -i song.avi -vf "fps=10,scale=640:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle" -loop 0 docs/media/gameplay.gif
 python -I tools/build_assets.py <папка_загрузок> [tracks]     # assets/ (numpy, scipy, soundfile, librosa, ffmpeg)

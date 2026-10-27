@@ -17,6 +17,7 @@ var ringing := {}
 var bending := false
 var bend_amount := 0.0
 var sliding := false
+var pick_strings: Callable = _lowest_string
 var _pending := {}
 
 
@@ -31,8 +32,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			press_fret(fret)
 		elif event.is_action_released(action):
 			release_fret(fret)
-	for string: String in Notes.STRINGS:
-		if event.is_action_pressed(InputConfig.strike_action(string)):
+	if event.is_action_pressed("strike"):
+		for string: String in pick_strings.call():
 			strike(string)
 	if event.is_action_pressed("bend"):
 		set_bend(1.0)
@@ -42,6 +43,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		set_bend(event.get_action_strength("bend_pull") * Tuning.BEND_MAX if event.is_pressed() else 0.0)
 	if event.is_action("slide"):
 		sliding = event.is_pressed()
+
+
+static func _lowest_string() -> Array:
+	return [Notes.STRINGS[0]]
 
 
 func _process(_delta: float) -> void:

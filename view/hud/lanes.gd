@@ -35,15 +35,13 @@ static func fret_label(fret: String) -> String:
 	return InputConfig.key_label(InputConfig.fret_action(fret))
 
 
-static func draw(ci: CanvasItem, strikes: Strikes, cue: Dictionary, t: float) -> void:
+static func draw(ci: CanvasItem, strikes: Strikes) -> void:
 	var area := rect()
 	var now := slot_now()
 	ci.draw_rect(area, Ink.PANEL)
 	_draw_bar_lines(ci, area, now)
-	for string: String in Notes.STRINGS:
+	for string: String in Game.tuning.strings:
 		_draw_string(ci, string, area, strikes)
-		if not Game.touch:
-			_draw_strike_key(ci, string, area, cue, t)
 	ci.draw_line(Vector2(Layout.HIT_X, area.position.y + 8), Vector2(Layout.HIT_X, area.end.y - 8), Color(1, 1, 1, 0.9), 4.0)
 
 
@@ -76,9 +74,3 @@ static func _draw_string(ci: CanvasItem, string: String, area: Rect2, strikes: S
 		points.append(Vector2(lerpf(x0, area.end.x, k), y + float(VIBRATO["amp"]) * shake * sin(k * PI) * wave))
 	ci.draw_polyline(points, STRING_LINE.lerp(STRING_HOT, shake), width, true)
 
-
-static func _draw_strike_key(ci: CanvasItem, string: String, area: Rect2, cue: Dictionary, t: float) -> void:
-	var lit: bool = cue.get("strings", []).has(string)
-	var ink := Color.WHITE.lerp(Ink.GOLD, Cue.glow(cue, t)) if lit else Ink.DIM
-	var label := InputConfig.key_label(InputConfig.strike_action(string))
-	Glyph.title(ci, Vector2(area.position.x + 16, lane_y(string) + 9), label, 24, ink)

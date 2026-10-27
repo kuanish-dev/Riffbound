@@ -57,6 +57,12 @@ func _draw_plain(button: Dictionary, _cue: Dictionary, _pulse: float) -> void:
 	PadArt.button(self, button["rect"], String(button["label"]), PadArt.NEON if lit else PadArt.IDLE, 1.0 if lit else 0.0)
 
 
+func _draw_level_arrow(button: Dictionary, _cue: Dictionary, _pulse: float) -> void:
+	var tint: Color = Difficulty.current()["tint"]
+	PadArt.panel(self, button["rect"], Color(tint, 0.7))
+	Glyph.neon(self, (button["rect"] as Rect2).get_center(), String(button["label"]), MenuView.ARROW_SIZE, tint)
+
+
 func _draw_shift(button: Dictionary, _cue: Dictionary, _pulse: float) -> void:
 	var shift := Cue.shift()
 	var wanted: bool = shift.get("dir", 0) == int(button["dir"])
@@ -67,17 +73,25 @@ func _draw_shift(button: Dictionary, _cue: Dictionary, _pulse: float) -> void:
 	PadArt.shift(self, button["rect"], label, float(button["dir"]), PadArt.GOLD if wanted else PadArt.IDLE, glow)
 
 
-func _draw_string(button: Dictionary, cue: Dictionary, pulse: float) -> void:
-	var string := String(button["string"])
+func _draw_strike(button: Dictionary, cue: Dictionary, pulse: float) -> void:
+	var string := _shown_string(cue)
 	var rect: Rect2 = button["rect"]
 	var bend: BendView = _bends[string]
-	var cued: bool = cue.get("strings", []).has(string)
+	var cued: bool = not cue.get("strings", []).is_empty()
 	StringArt.draw(self, rect, {"string": string, "name": button["label"], "note": _sounding_note(string, bend.amount),
 		"edge": _string_edge(cued, pulse, bend.amount), "glow": strikes.flash(string), "amount": bend.amount,
-		"wobble": bend.wobble, "apex": _pull_x(string), "shake": strikes.shake(string), "t": t,
+		"wobble": bend.wobble, "apex": _pull_x(), "shake": strikes.shake(string), "t": t,
 		"meter": maxf(0.25 if Game.needs.get("bend", true) else 0.0, clampf(bend.amount * 4.0, 0.0, 1.0))})
 	if cued and cue.get("bend", false):
 		Glyph.text_center(self, rect.get_center().x - 14, rect.end.y - 12, BEND_HINT, 17, Ink.GOLD)
+
+
+static func _shown_string(cue: Dictionary) -> String:
+	var fretboard := Game.fretboard
+	if fretboard.ringing.has(fretboard.active):
+		return fretboard.active
+	var cued: Array = cue.get("strings", [])
+	return String(cued[0]) if not cued.is_empty() else String(Game.tuning.strings[0])
 
 
 static func _sounding_note(string: String, amount: float) -> String:
@@ -94,8 +108,8 @@ static func _string_edge(cued: bool, pulse: float, amount: float) -> Color:
 	return PadArt.HOT if amount > 0.05 else PadArt.IDLE
 
 
-static func _pull_x(string: String) -> float:
-	var pull: BendGesture = Game.pad.pull_of(string) if Game.pad != null else null
+static func _pull_x() -> float:
+	var pull: BendGesture = Game.pad.pulling() if Game.pad != null else null
 	return pull.from.x if pull != null and pull.on else -1.0
 
 
@@ -117,7 +131,7 @@ static func _chord_dots() -> Array[Dictionary]:
 	var dots: Array[Dictionary] = []
 	var chord := Harmony.parse(ChordGuide.now()) if Game.state == "jam" else {}
 	for fret: String in Notes.FRETS:
-		for string: String in Notes.STRINGS:
+		for string: String in Game.tuning.strings:
 			var role := Harmony.role(chord, Game.tuning.midi(fret, string))
 			if not role.is_empty():
 				dots.append({"fret": fret, "string": string, "ink": PadArt.GOLD if role == "root" else PadArt.NEON})

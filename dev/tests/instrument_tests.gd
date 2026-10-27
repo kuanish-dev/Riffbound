@@ -103,6 +103,24 @@ func test_bend_any_height() -> void:
 		"тянешь на сколько угодно — до полутора тонов")
 
 
+func test_one_strike_hits_picked_strings() -> void:
+	fb.pick_strings = func() -> Array: return ["low", "mid"]
+	fb.press_fret("2")
+	var strike := InputEventAction.new()
+	strike.action = "strike"
+	strike.pressed = true
+	fb._unhandled_input(strike)
+	_at(1.2)
+	eq(log, ["strike 2:low", "strike 2:mid"], "одна кнопка — удар по струнам, что выбрала игра (аккорд)")
+
+
+func test_one_string_jam_reaches_higher_positions() -> void:
+	var jam := Tuning.one_string()
+	var song := Tuning.song()
+	check(jam.top_position() == song.top_position() + Notes.STRINGS.size() - 1, "на одной струне позиций больше на две")
+	eq(jam.midi("4", "low"), song.midi("4", "low"), "но нижняя струна звучит так же")
+
+
 func _at(time: float) -> void:
 	clock.set_manual(time)
 	fb.update()

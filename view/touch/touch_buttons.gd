@@ -10,15 +10,13 @@ const GUITAR := [
 		"rect": Rect2(676, 520, 146, 190)},
 	{"kind": "tap", "art": "shift", "action": "position_up", "needs": "positions", "label": "поз", "dir": 1.0,
 		"rect": Rect2(834, 520, 146, 190)},
-	{"kind": "tap", "art": "string", "action": "strike_high", "string": "high", "label": "верхняя", "rect": Rect2(996, 262, 264, 140)},
-	{"kind": "tap", "art": "string", "action": "strike_mid", "string": "mid", "label": "средняя", "rect": Rect2(996, 416, 264, 140)},
-	{"kind": "tap", "art": "string", "action": "strike_low", "string": "low", "label": "нижняя", "rect": Rect2(996, 570, 264, 140)},
+	{"kind": "tap", "art": "strike", "action": "strike", "bends": true, "label": "удар", "rect": Rect2(996, 262, 264, 448)},
 ]
 const BACK := {"kind": "tap", "action": "quit", "label": "← меню", "rect": Rect2(1090, 2, 186, 64)}
 const EXTRA := {
 	"menu": [
-		{"kind": "tap", "action": "easier", "label": "‹", "rect": Rect2(420, 0, 120, 64)},
-		{"kind": "tap", "action": "harder", "label": "›", "rect": Rect2(740, 0, 120, 64)},
+		{"kind": "tap", "art": "level_arrow", "action": "easier", "label": "‹", "rect": Rect2(690, 62, 150, 180)},
+		{"kind": "tap", "art": "level_arrow", "action": "harder", "label": "›", "rect": Rect2(1120, 62, 150, 180)},
 		{"kind": "tap", "action": "jam", "label": "Джем", "rect": Rect2(20, 548, 610, 162)},
 		{"kind": "tap", "action": "shop", "label": "Магазин", "rect": Rect2(650, 548, 610, 162)},
 	],
@@ -70,6 +68,13 @@ static func at(state: String, pos: Vector2) -> Dictionary:
 		if (button["rect"] as Rect2).has_point(pos):
 			return button
 	return {}
+
+
+static func extra_rect(state: String, action: String) -> Rect2:
+	for button: Dictionary in EXTRA.get(state, []):
+		if button["action"] == action:
+			return button["rect"]
+	return Rect2()
 
 
 static func center(action: String) -> Vector2:

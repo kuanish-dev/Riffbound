@@ -98,6 +98,26 @@ func lives() -> int:
 	return MISTAKES_TO_FAIL - mistakes
 
 
+func strings_near(time: float) -> Array[String]:
+	var slot := _nearest_waiting_slot(time)
+	var out: Array[String] = []
+	for note in notes:
+		if note["state"] == "wait" and int(note["slot"]) == slot and not out.has(note["string"]):
+			out.append(String(note["string"]))
+	return out
+
+
+func _nearest_waiting_slot(time: float) -> int:
+	var slot := -1
+	var best := INF
+	for note in notes:
+		var error := absf(float(note["t"]) - time)
+		if note["state"] == "wait" and error < best:
+			best = error
+			slot = int(note["slot"])
+	return slot
+
+
 func next_note() -> Dictionary:
 	for note in notes:
 		if note["state"] == "wait":

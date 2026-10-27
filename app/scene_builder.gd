@@ -11,6 +11,7 @@ static func build(main: Main) -> void:
 	main.shop = ShopScreen.new(main)
 	main.common = CommonCommands.new(main)
 	main.router = GuitarRouter.new(main.fretboard, main.hud)
+	main.fretboard.pick_strings = main.router.strings_to_strike
 
 
 static func _build_guitar(main: Main) -> void:

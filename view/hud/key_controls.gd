@@ -31,11 +31,8 @@ func _groups(cue: Dictionary) -> Array[Dictionary]:
 		var key := _key(InputConfig.key_label(InputConfig.fret_action(fret)), held.has(fret), cue.get("frets", []).has(fret))
 		key["edge"] = Ink.of_position(Game.tuning.position)
 		frets.append(key)
-	var strings: Array[Dictionary] = []
-	for string: String in Notes.STRINGS:
-		var label := InputConfig.key_label(InputConfig.strike_action(string))
-		strings.append(_key(label, strikes.flash(string) > 0.0, cue.get("strings", []).has(string)))
-	var groups: Array[Dictionary] = [{"caption": "держи", "keys": frets}, {"caption": "бей", "keys": strings}]
+	var strike := _key(InputConfig.key_label("strike"), _struck(), not cue.get("strings", []).is_empty())
+	var groups: Array[Dictionary] = [{"caption": "держи", "keys": frets}, {"caption": "бей", "keys": [strike]}]
 	if Game.needs.get("bend", true):
 		var bend := _key("Пробел", Game.fretboard.bending, cue.get("bend", false))
 		bend["w"] = KEY_SIZE.x * 2.2
@@ -43,6 +40,10 @@ func _groups(cue: Dictionary) -> Array[Dictionary]:
 	if Game.needs.get("positions", true):
 		groups.append(_hand_group())
 	return groups
+
+
+func _struck() -> bool:
+	return Notes.STRINGS.any(func(string: String) -> bool: return strikes.flash(string) > 0.0)
 
 
 func _hand_group() -> Dictionary:

@@ -19,10 +19,9 @@ func holding(action: String) -> bool:
 	return int(_holds.get(action, 0)) > 0
 
 
-func pull_of(string: String) -> BendGesture:
+func pulling() -> BendGesture:
 	for bend: BendGesture in _bends.values():
-		if bend.string == string:
-			return bend
+		return bend
 	return null
 
 
@@ -64,7 +63,7 @@ func _drag_to(index: int, pos: Vector2) -> void:
 	var button := TouchButtons.at(Game.state, pos)
 	if _can_move(index, button):
 		_move_sliding(index, button)
-		if button.has("string"):
+		if button.get("bends", false):
 			_aim_bend(index, button, pos)
 	_track_bend(index, pos)
 
@@ -83,7 +82,9 @@ func _lift(index: int) -> void:
 
 func _can_move(index: int, button: Dictionary) -> bool:
 	var bending: bool = _bends.has(index) and (_bends[index] as BendGesture).on
-	return button != _touches.get(index, {}) and (not bending or button.has("string"))
+	if button.get("kind") == "row":
+		return false
+	return button != _touches.get(index, {}) and (not bending or button.get("bends", false))
 
 
 func _move_sliding(index: int, button: Dictionary) -> void:
@@ -108,8 +109,8 @@ func _scroll(index: int, pos: Vector2) -> void:
 
 func _aim_bend(index: int, button: Dictionary, pos: Vector2) -> void:
 	_release_bend(index)
-	if button.has("string"):
-		_bends[index] = BendGesture.new(String(button["string"]), pos)
+	if button.get("bends", false):
+		_bends[index] = BendGesture.new(pos)
 
 
 func _track_bend(index: int, pos: Vector2) -> void:
@@ -147,7 +148,7 @@ func _begin_row(row: Dictionary) -> void:
 	var index := int(row["index"])
 	var again := int(Game.get(row["field"])) == index
 	Game.set(row["field"], index)
-	if again or row["instant"]:
+	if row.get("play", false) or (again and row["again_takes"]):
 		_begin_tap({"action": "start"})
 	else:
 		row_selected.emit()

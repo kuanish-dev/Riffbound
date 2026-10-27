@@ -6,15 +6,13 @@ const RANGE := 110.0
 const STEP := 0.02
 const SIDEWAYS := 1.5
 
-var string := ""
 var from := Vector2.ZERO
 var pos := Vector2.ZERO
 var on := false
 var amount := 0.0
 
 
-func _init(struck: String, at: Vector2) -> void:
-	string = struck
+func _init(at: Vector2) -> void:
 	from = at
 	pos = at
 

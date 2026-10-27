@@ -18,7 +18,7 @@ func add_played(note: String, string: String, time: float, legato: bool) -> void
 
 func _draw() -> void:
 	_draw_top()
-	Lanes.draw(self, strikes, {}, t)
+	Lanes.draw(self, strikes)
 	ChordGuide.draw(self)
 	_draw_played()
 	if Game.more and not Game.touch:

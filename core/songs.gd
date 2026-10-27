@@ -61,6 +61,9 @@ static func end_slot(song: Dictionary) -> int:
 
 static func from_layer(events: Array, tuning: Tuning, backing: String, chords: Array[String]) -> Dictionary:
 	var notes := LayerSong.notes(events)
+	var song_tuning := Tuning.new()
+	song_tuning.set_key(tuning.key, Tuning.SCALES[tuning.scale]["id"])
+	LayerSong.fit_strings(notes, song_tuning)
 	var number := _next_number()
 	return {"id": "my_%d" % number, "name": "Моя песня %d" % number, "number": number, "backing": backing,
 		"bpm": Timing.bpm, "key": tuning.key, "scale": Tuning.SCALES[tuning.scale]["id"],

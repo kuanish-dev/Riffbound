@@ -5,9 +5,7 @@ const KEYS := {
 	"fret_2": [KEY_S],
 	"fret_3": [KEY_D],
 	"fret_4": [KEY_F],
-	"strike_low": [KEY_J],
-	"strike_mid": [KEY_K],
-	"strike_high": [KEY_L],
+	"strike": [KEY_J],
 	"bend": [KEY_SPACE],
 	"bend_pull": [],
 	"slide": [],
@@ -51,10 +49,6 @@ static func register() -> void:
 
 static func fret_action(fret: String) -> String:
 	return "fret_" + fret
-
-
-static func strike_action(string: String) -> String:
-	return "strike_" + string
 
 
 static func key_label(action: String) -> String:

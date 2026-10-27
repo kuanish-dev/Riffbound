@@ -46,43 +46,48 @@ func test_two_fingers_on_one_fret() -> void:
 	eq(sent, ["fret_2 ↓"], "второй палец ещё держит лад")
 
 
-func test_swipe_across_strings_strums() -> void:
-	_touch(0, _center("strike_high"), true)
-	_drag(0, _center("strike_mid"))
-	_drag(0, _center("strike_low"))
-	eq(sent, ["strike_high ↓", "strike_high ↑", "strike_mid ↓", "strike_mid ↑", "strike_low ↓", "strike_low ↑"],
-		"провёл через струны — удар по каждой")
-
-
-func test_gap_between_strings_is_dead_zone() -> void:
-	var mid: Rect2 = TouchButtons.at("song", _center("strike_mid"))["rect"]
-	_touch(0, Vector2(mid.get_center().x, mid.position.y - 7), true)
-	eq(sent, [], "в промежуток между струнами — не удар")
-	check(mid.size.y >= 120.0 and mid.size.x >= 200.0, "кнопка струны крупная")
-
-
-func test_strings_stack_like_the_highway() -> void:
-	var high: Rect2 = TouchButtons.at("song", _center("strike_high"))["rect"]
-	var low: Rect2 = TouchButtons.at("song", _center("strike_low"))["rect"]
-	check(high.position.y < low.position.y, "верхняя струна сверху, как на дорожке")
-	check(not high.intersects(Layout.HIGHWAY_TOUCH), "струны не залезают на дорожку")
+func test_one_strike_button() -> void:
+	_touch(0, _center("strike"), true)
+	_touch(0, _center("strike"), false)
+	eq(sent, ["strike ↓", "strike ↑"], "одна кнопка удара — струну выбирает игра")
+	var strike: Rect2 = TouchButtons.at("song", _center("strike"))["rect"]
+	check(strike.size.y >= 300.0 and strike.size.x >= 200.0, "кнопка удара крупная")
+	check(not strike.intersects(Layout.HIGHWAY_TOUCH), "кнопка не залезает на дорожку")
 
 
 func test_chord_with_two_hands() -> void:
 	_touch(0, _center("fret_1"), true)
-	_touch(1, _center("strike_low"), true)
-	_drag(1, _center("strike_mid"))
-	eq(sent, ["fret_1 ↓", "strike_low ↓", "strike_low ↑", "strike_mid ↓", "strike_mid ↑"], "лад держится, другой палец бьёт")
+	_touch(1, _center("strike"), true)
+	eq(sent, ["fret_1 ↓", "strike ↓", "strike ↑"], "лад держится, другой палец бьёт")
 
 
-func test_menu_row_starts_at_once() -> void:
+func test_menu_starts_only_by_play_button() -> void:
+	var was_touch := Game.touch
+	Game.touch = true
 	Game.state = "menu"
 	var second: Rect2 = _song_rows()[1]["rect"]
 	_touch(0, second.get_center(), true)
-	eq(sent, [], "пока палец на строке — ничего: вдруг это прокрутка")
 	_touch(0, second.get_center(), false)
-	eq(Game.menu_index, 1, "касание выбирает песню")
-	eq(sent, ["start ↓", "start ↑"], "и сразу её играет — одно касание")
+	_touch(0, second.get_center(), true)
+	_touch(0, second.get_center(), false)
+	eq([Game.menu_index, sent], [1, []], "касание строки только выбирает песню, даже повторное")
+	var play := _play_button(2)
+	_touch(0, play.get_center(), true)
+	_drag(0, play.get_center() + Vector2(0, -60))
+	_touch(0, play.get_center() + Vector2(0, -60), false)
+	eq(sent, [], "листал, начав с кнопки ▶ — не запуск")
+	Game.scroll["menu"] = 0.0
+	play = _play_button(2)
+	_touch(0, play.get_center(), true)
+	_touch(0, play.get_center(), false)
+	eq([Game.menu_index, sent], [2, ["start ↓", "start ↑"]], "кнопка ▶ выбирает и запускает песню")
+	sent.clear()
+	_touch(1, Vector2(play.get_center().x, 540), true)
+	_drag(1, play.get_center())
+	_touch(1, play.get_center(), false)
+	eq([Game.menu_index, sent], [2, []], "палец въехал на ▶ из-за края списка — не запуск")
+	Game.scroll["menu"] = 0.0
+	Game.touch = was_touch
 
 
 func test_shop_row_selects_then_takes() -> void:
@@ -165,13 +170,16 @@ func test_finger_scroll_reaches_every_song() -> void:
 	_touch(0, (last["rect"] as Rect2).get_center(), true)
 	_touch(0, (last["rect"] as Rect2).get_center(), false)
 	eq(Game.menu_index, Songs.all().size() - 1, "коснулся последней — она выбрана")
-	eq(sent, ["start ↓", "start ↑"], "и играет")
+	var play := _play_button(Songs.all().size() - 1)
+	_touch(0, play.get_center(), true)
+	_touch(0, play.get_center(), false)
+	eq(sent, ["start ↓", "start ↑"], "её ▶ — играет")
 	Game.scroll["menu"] = 0.0
 	Game.touch = was_touch
 
 
 func test_bend_by_pulling_string() -> void:
-	var at := _center("strike_mid")
+	var at := _center("strike")
 	var tone := BendGesture.DEAD + BendGesture.RANGE
 	_touch(0, at, true)
 	_drag(0, at + Vector2(-3, 1))
@@ -181,13 +189,13 @@ func test_bend_by_pulling_string() -> void:
 	_drag(0, at + Vector2(-5, 4))
 	_drag(0, at + Vector2(-tone, 0))
 	_touch(0, at + Vector2(-tone, 0), false)
-	eq(sent, ["strike_mid ↓", "strike_mid ↑", "bend 0.5", "bend 1.0", "bend %.1f" % Tuning.BEND_MAX, "bend 0.0",
+	eq(sent, ["strike ↓", "strike ↑", "bend 0.5", "bend 1.0", "bend %.1f" % Tuning.BEND_MAX, "bend 0.0",
 		"bend 1.0", "bend 0.0"],
 		"тянешь — полтона, тон, до упора; вернул — отпустил; снова потянул и поднял палец — отпустил")
 
 
 func test_wiggle_on_string_is_vibrato() -> void:
-	var at := _center("strike_high")
+	var at := _center("strike")
 	_touch(0, at, true)
 	for x: float in [4.0, 10.0, 16.0, 10.0, 4.0, -4.0, -10.0, -16.0, -10.0, -4.0, 4.0, 10.0, 16.0]:
 		_drag(0, at + Vector2(x, 1))
@@ -196,17 +204,17 @@ func test_wiggle_on_string_is_vibrato() -> void:
 	check(bends.size() >= 4, "покачивание на струне — нота дрожит (%s)" % str(bends))
 	check(bends.all(func(s: String) -> bool: return float(s.split(" ")[1]) <= 0.1), "вибрато мелкое, не бенд на тон")
 	eq(sent.back(), "bend 0.0", "отпустил — струна отпущена")
-	eq(sent.count("strike_high ↓"), 1, "покачивание не бьёт по струне заново")
+	eq(sent.count("strike ↓"), 1, "покачивание не бьёт по струне заново")
 
 
 func test_strum_is_not_bend() -> void:
-	var high := _center("strike_high")
-	_touch(0, high, true)
-	_drag(0, _center("strike_mid") + Vector2(-50, 0))
-	_drag(0, _center("strike_low") + Vector2(-60, 0))
-	_touch(0, _center("strike_low") + Vector2(-60, 0), false)
-	check(not sent.any(func(s: String) -> bool: return s.begins_with("bend")), "бой наискосок через струны — не бенд: %s" % str(sent))
-	eq(sent.count("strike_low ↓"), 1, "но удары по всем струнам есть")
+	var at := _center("strike")
+	_touch(0, at, true)
+	_drag(0, at + Vector2(-30, 110))
+	_drag(0, at + Vector2(-45, 170))
+	_touch(0, at + Vector2(-45, 170), false)
+	check(not sent.any(func(s: String) -> bool: return s.begins_with("bend")), "бой сверху вниз — не бенд: %s" % str(sent))
+	eq(sent.count("strike ↓"), 1, "но удар есть")
 
 
 func test_pad_shows_fingers_pull_and_slide() -> void:
@@ -215,15 +223,14 @@ func test_pad_shows_fingers_pull_and_slide() -> void:
 	_touch(0, _center("fret_1"), true)
 	_drag(0, _center("fret_3"))
 	eq(slides, [["1", "3"]], "слайд с лада на лад")
-	var from := _center("strike_mid")
+	var from := _center("strike")
 	_touch(1, from, true)
 	_drag(1, from + Vector2(40, 0))
-	var pull := pad.pull_of("mid")
-	eq([pull.from, pull.pos, pull.on], [from, from + Vector2(40, 0), true], "тянет среднюю от точки удара")
-	check(pad.pull_of("high") == null, "верхнюю никто не тянет")
+	var pull := pad.pulling()
+	eq([pull.from, pull.pos, pull.on], [from, from + Vector2(40, 0), true], "тянет струну от точки удара")
 	eq(pad.points.size(), 2, "два пальца на экране")
 	_touch(1, from + Vector2(40, 0), false)
-	check(pad.pull_of("mid") == null and pad.points.size() == 1, "палец поднят — не тянет и не виден")
+	check(pad.pulling() == null and pad.points.size() == 1, "палец поднят — не тянет и не виден")
 
 
 func test_arrows_change_selected_song_level() -> void:
@@ -245,7 +252,14 @@ func _button_center(action: String) -> Vector2:
 
 
 func _song_rows() -> Array:
-	return TouchLists.rows("menu")
+	return TouchLists.rows("menu").filter(func(r: Dictionary) -> bool: return not r.get("play", false))
+
+
+func _play_button(index: int) -> Rect2:
+	for row: Dictionary in TouchLists.rows("menu"):
+		if row.get("play", false) and int(row["index"]) == index:
+			return row["rect"]
+	return Rect2()
 
 
 func _center(action: String) -> Vector2:

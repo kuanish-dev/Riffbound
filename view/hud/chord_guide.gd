@@ -37,7 +37,7 @@ static func _draw_upcoming(ci: CanvasItem, name: String, top: float) -> void:
 
 
 static func _draw_grid(ci: CanvasItem, chord: Dictionary) -> void:
-	for string: String in Notes.STRINGS:
+	for string: String in Game.tuning.strings:
 		for c in Notes.FRETS.size():
 			var at := Vector2(Layout.HIT_X + float(GRID["x"]) + c * float(GRID["step"]), Lanes.lane_y(string))
 			_draw_cell(ci, at, Notes.FRETS[c], string, chord)

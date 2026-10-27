@@ -38,6 +38,7 @@ func _start() -> void:
 func _plan(notes: Array, auto_hand: bool) -> void:
 	var position := _position
 	var last := -INF
+	var struck := -1
 	for i in notes.size():
 		var note: Dictionary = notes[i]
 		var t := int(note["slot"]) * Timing.slot_len()
@@ -46,6 +47,9 @@ func _plan(notes: Array, auto_hand: bool) -> void:
 			_add(maxf(t - SHIFT_AHEAD, last + SHIFT_AFTER), {"kind": "position", "to": position})
 		last = t
 		_plan_fingers(notes, i, t)
+		if not note["legato"] and int(note["slot"]) != struck:
+			struck = int(note["slot"])
+			_add(t, {"kind": "strike"})
 		if note["bend"]:
 			_plan_bend(note, t)
 	_actions.sort_custom(_earlier)
@@ -60,7 +64,6 @@ func _plan_fingers(notes: Array, i: int, t: float) -> void:
 	var frets := [] if fret == Notes.MUTE else [fret]
 	frets.append_array(_pull_targets(notes, i))
 	_add(t - PREPARE, {"kind": "frets", "frets": frets})
-	_add(t, {"kind": "strike", "string": note["string"]})
 
 
 func _plan_bend(note: Dictionary, t: float) -> void:
@@ -96,9 +99,9 @@ func _do_frets(action: Dictionary) -> void:
 				_held[fret] = on
 
 
-func _do_strike(action: Dictionary) -> void:
-	_send(InputConfig.strike_action(String(action["string"])), true)
-	_send(InputConfig.strike_action(String(action["string"])), false)
+func _do_strike(_action: Dictionary) -> void:
+	_send("strike", true)
+	_send("strike", false)
 
 
 func _do_legato(action: Dictionary) -> void:
